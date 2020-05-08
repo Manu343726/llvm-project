@@ -1,0 +1,9 @@
+add_llvm_component_library(LLVMFantasyDesc
+  FantasyAsmBackend.cpp
+  FantasyELFObjectWriter.cpp
+  FantasyInstPrinter.cpp
+  FantasyMCAsmInfo.cpp
+  FantasyMCCodeEmitter.cpp
+  FantasyMCExpr.cpp
+  FantasyMCTargetDesc.cpp
+)
