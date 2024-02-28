@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// clang-format off
+
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
@@ -65,6 +67,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case riscv32:        return "riscv32";
   case riscv64:        return "riscv64";
   case shave:          return "shave";
+  case cucaracha:      return "cucaracha";
   case sparc:          return "sparc";
   case sparcel:        return "sparcel";
   case sparcv9:        return "sparcv9";
@@ -127,6 +130,7 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
   case bpfel:
   case bpfeb:       return "bpf";
 
+  case cucaracha:   return "cucaracha";
   case sparcv9:
   case sparcel:
   case sparc:       return "sparc";
@@ -358,6 +362,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("riscv32", riscv32)
     .Case("riscv64", riscv64)
     .Case("hexagon", hexagon)
+    .Case("cucaracha", cucaracha)
     .Case("sparc", sparc)
     .Case("sparcel", sparcel)
     .Case("sparcv9", sparcv9)
@@ -505,6 +510,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("riscv64", Triple::riscv64)
     .Case("hexagon", Triple::hexagon)
     .Cases("s390x", "systemz", Triple::systemz)
+    .Case("cucaracha", Triple::cucaracha)
     .Case("sparc", Triple::sparc)
     .Case("sparcel", Triple::sparcel)
     .Cases("sparcv9", "sparc64", Triple::sparcv9)
@@ -841,6 +847,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::riscv32:
   case Triple::riscv64:
   case Triple::shave:
+  case Triple::cucaracha:
   case Triple::sparc:
   case Triple::sparcel:
   case Triple::sparcv9:
@@ -1421,6 +1428,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::renderscript32:
   case llvm::Triple::riscv32:
   case llvm::Triple::shave:
+  case llvm::Triple::cucaracha:
   case llvm::Triple::sparc:
   case llvm::Triple::sparcel:
   case llvm::Triple::spir:
@@ -1512,6 +1520,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::renderscript32:
   case Triple::riscv32:
   case Triple::shave:
+  case Triple::cucaracha:
   case Triple::sparc:
   case Triple::sparcel:
   case Triple::spir:
@@ -1575,6 +1584,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::tcele:
   case Triple::xcore:
   case Triple::xtensa:
+  case Triple::cucaracha:
     T.setArch(UnknownArch);
     break;
 
