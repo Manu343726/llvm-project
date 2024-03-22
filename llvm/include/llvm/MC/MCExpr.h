@@ -10,6 +10,7 @@
 #define LLVM_MC_MCEXPR_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/Support/SMLoc.h"
 #include <cstdint>
 
@@ -44,9 +45,9 @@ public:
 
 private:
   static const unsigned NumSubclassDataBits = 24;
-  static_assert(
-      NumSubclassDataBits == CHAR_BIT * (sizeof(unsigned) - sizeof(ExprKind)),
-      "ExprKind and SubclassData together should take up one word");
+  static_assert(NumSubclassDataBits ==
+                    CHAR_BIT * (sizeof(unsigned) - sizeof(ExprKind)),
+                "ExprKind and SubclassData together should take up one word");
 
   ExprKind Kind;
   /// Field reserved for use by MCExpr subclasses.
@@ -156,7 +157,8 @@ class MCConstantExpr : public MCExpr {
 
   MCConstantExpr(int64_t Value, bool PrintInHex, unsigned SizeInBytes)
       : MCExpr(MCExpr::Constant, SMLoc(),
-               encodeSubclassData(PrintInHex, SizeInBytes)), Value(Value) {}
+               encodeSubclassData(PrintInHex, SizeInBytes)),
+        Value(Value) {}
 
 public:
   /// \name Construction
@@ -357,7 +359,10 @@ public:
     VK_VE_TPOFF_LO32,  // symbol@tpoff_lo
 
     VK_TPREL,
-    VK_DTPREL
+    VK_DTPREL,
+
+    VK_LEG_HI,
+    VK_LEG_LO
   };
 
 private:
@@ -446,19 +451,23 @@ public:
   static const MCUnaryExpr *create(Opcode Op, const MCExpr *Expr,
                                    MCContext &Ctx, SMLoc Loc = SMLoc());
 
-  static const MCUnaryExpr *createLNot(const MCExpr *Expr, MCContext &Ctx, SMLoc Loc = SMLoc()) {
+  static const MCUnaryExpr *createLNot(const MCExpr *Expr, MCContext &Ctx,
+                                       SMLoc Loc = SMLoc()) {
     return create(LNot, Expr, Ctx, Loc);
   }
 
-  static const MCUnaryExpr *createMinus(const MCExpr *Expr, MCContext &Ctx, SMLoc Loc = SMLoc()) {
+  static const MCUnaryExpr *createMinus(const MCExpr *Expr, MCContext &Ctx,
+                                        SMLoc Loc = SMLoc()) {
     return create(Minus, Expr, Ctx, Loc);
   }
 
-  static const MCUnaryExpr *createNot(const MCExpr *Expr, MCContext &Ctx, SMLoc Loc = SMLoc()) {
+  static const MCUnaryExpr *createNot(const MCExpr *Expr, MCContext &Ctx,
+                                      SMLoc Loc = SMLoc()) {
     return create(Not, Expr, Ctx, Loc);
   }
 
-  static const MCUnaryExpr *createPlus(const MCExpr *Expr, MCContext &Ctx, SMLoc Loc = SMLoc()) {
+  static const MCUnaryExpr *createPlus(const MCExpr *Expr, MCContext &Ctx,
+                                       SMLoc Loc = SMLoc()) {
     return create(Plus, Expr, Ctx, Loc);
   }
 
@@ -474,39 +483,37 @@ public:
 
   /// @}
 
-  static bool classof(const MCExpr *E) {
-    return E->getKind() == MCExpr::Unary;
-  }
+  static bool classof(const MCExpr *E) { return E->getKind() == MCExpr::Unary; }
 };
 
 /// Binary assembler expressions.
 class MCBinaryExpr : public MCExpr {
 public:
   enum Opcode {
-    Add,  ///< Addition.
-    And,  ///< Bitwise and.
-    Div,  ///< Signed division.
-    EQ,   ///< Equality comparison.
-    GT,   ///< Signed greater than comparison (result is either 0 or some
-          ///< target-specific non-zero value)
-    GTE,  ///< Signed greater than or equal comparison (result is either 0 or
-          ///< some target-specific non-zero value).
-    LAnd, ///< Logical and.
-    LOr,  ///< Logical or.
-    LT,   ///< Signed less than comparison (result is either 0 or
-          ///< some target-specific non-zero value).
-    LTE,  ///< Signed less than or equal comparison (result is either 0 or
-          ///< some target-specific non-zero value).
-    Mod,  ///< Signed remainder.
-    Mul,  ///< Multiplication.
-    NE,   ///< Inequality comparison.
-    Or,   ///< Bitwise or.
+    Add,   ///< Addition.
+    And,   ///< Bitwise and.
+    Div,   ///< Signed division.
+    EQ,    ///< Equality comparison.
+    GT,    ///< Signed greater than comparison (result is either 0 or some
+           ///< target-specific non-zero value)
+    GTE,   ///< Signed greater than or equal comparison (result is either 0 or
+           ///< some target-specific non-zero value).
+    LAnd,  ///< Logical and.
+    LOr,   ///< Logical or.
+    LT,    ///< Signed less than comparison (result is either 0 or
+           ///< some target-specific non-zero value).
+    LTE,   ///< Signed less than or equal comparison (result is either 0 or
+           ///< some target-specific non-zero value).
+    Mod,   ///< Signed remainder.
+    Mul,   ///< Multiplication.
+    NE,    ///< Inequality comparison.
+    Or,    ///< Bitwise or.
     OrNot, ///< Bitwise or not.
-    Shl,  ///< Shift left.
-    AShr, ///< Arithmetic shift right.
-    LShr, ///< Logical shift right.
-    Sub,  ///< Subtraction.
-    Xor   ///< Bitwise exclusive or.
+    Shl,   ///< Shift left.
+    AShr,  ///< Arithmetic shift right.
+    LShr,  ///< Logical shift right.
+    Sub,   ///< Subtraction.
+    Xor    ///< Bitwise exclusive or.
   };
 
 private:
@@ -600,12 +607,12 @@ public:
   }
 
   static const MCBinaryExpr *createAShr(const MCExpr *LHS, const MCExpr *RHS,
-                                       MCContext &Ctx) {
+                                        MCContext &Ctx) {
     return create(AShr, LHS, RHS, Ctx);
   }
 
   static const MCBinaryExpr *createLShr(const MCExpr *LHS, const MCExpr *RHS,
-                                       MCContext &Ctx) {
+                                        MCContext &Ctx) {
     return create(LShr, LHS, RHS, Ctx);
   }
 
@@ -661,7 +668,7 @@ public:
   // This should be set when assigned expressions are not valid ".set"
   // expressions, e.g. registers, and must be inlined.
   virtual bool inlineAssignedExpr() const { return false; }
-  virtual void visitUsedExpr(MCStreamer& Streamer) const = 0;
+  virtual void visitUsedExpr(MCStreamer &Streamer) const = 0;
   virtual MCFragment *findAssociatedFragment() const = 0;
 
   virtual void fixELFSymbolsInTLSFixups(MCAssembler &) const = 0;

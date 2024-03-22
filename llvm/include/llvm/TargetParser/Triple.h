@@ -107,7 +107,8 @@ public:
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
     ve,             // NEC SX-Aurora Vector Engine
-    LastArchType = ve
+    leg, // Codeplay llvm backend tutorial LEG arch (see llvm-leg on github)
+    LastArchType = leg
   };
   enum SubArchType {
     NoSubArch,

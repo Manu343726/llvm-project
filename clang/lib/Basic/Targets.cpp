@@ -20,9 +20,9 @@
 #include "Targets/AVR.h"
 #include "Targets/BPF.h"
 #include "Targets/CSKY.h"
-#include "Targets/Cucaracha.h"
 #include "Targets/DirectX.h"
 #include "Targets/Hexagon.h"
+#include "Targets/LEG.h"
 #include "Targets/Lanai.h"
 #include "Targets/Le64.h"
 #include "Targets/LoongArch.h"
@@ -469,8 +469,6 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
       return std::make_unique<RISCV64TargetInfo>(Triple, Opts);
     }
 
-  case llvm::Triple::cucaracha:
-    return std::make_unique<CucarachaTargetInfo>(Triple, Opts);
   case llvm::Triple::sparc:
     switch (os) {
     case llvm::Triple::Linux:
@@ -764,6 +762,8 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
     default:
       return std::make_unique<LoongArch64TargetInfo>(Triple, Opts);
     }
+  case llvm::Triple::leg:
+    return std::make_unique<LEGTargetInfo>(Triple, Opts);
   }
 }
 } // namespace targets

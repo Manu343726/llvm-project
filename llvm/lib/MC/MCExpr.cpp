@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+// clang-format off
 
 #include "llvm/MC/MCExpr.h"
 #include "llvm/ADT/Statistic.h"
@@ -384,6 +385,8 @@ StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
   case VK_VE_TLS_GD_LO32: return "tls_gd_lo";
   case VK_VE_TPOFF_HI32: return "tpoff_hi";
   case VK_VE_TPOFF_LO32: return "tpoff_lo";
+  case VK_LEG_HI: return "hi";
+  case VK_LEG_LO: return "lo";
   }
   llvm_unreachable("Invalid variant kind");
 }

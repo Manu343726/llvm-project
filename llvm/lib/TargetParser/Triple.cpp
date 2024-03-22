@@ -47,6 +47,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case lanai:          return "lanai";
   case le32:           return "le32";
   case le64:           return "le64";
+  case leg:            return "leg";
   case loongarch32:    return "loongarch32";
   case loongarch64:    return "loongarch64";
   case m68k:           return "m68k";
@@ -544,6 +545,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("loongarch64", Triple::loongarch64)
     .Case("dxil", Triple::dxil)
     .Case("xtensa", Triple::xtensa)
+    .Case("leg", Triple::leg)
     .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -829,6 +831,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::lanai:
   case Triple::le32:
   case Triple::le64:
+  case Triple::leg:
   case Triple::loongarch32:
   case Triple::loongarch64:
   case Triple::m68k:
@@ -1417,6 +1420,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::kalimba:
   case llvm::Triple::lanai:
   case llvm::Triple::le32:
+  case llvm::Triple::leg:
   case llvm::Triple::loongarch32:
   case llvm::Triple::m68k:
   case llvm::Triple::mips:
@@ -1509,6 +1513,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::kalimba:
   case Triple::lanai:
   case Triple::le32:
+  case Triple::leg:
   case Triple::loongarch32:
   case Triple::m68k:
   case Triple::mips:
@@ -1575,6 +1580,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::hexagon:
   case Triple::kalimba:
   case Triple::lanai:
+  case Triple::leg:
   case Triple::m68k:
   case Triple::msp430:
   case Triple::r600:
@@ -1663,6 +1669,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::kalimba:
   case Triple::le32:
   case Triple::le64:
+  case Triple::leg:
   case Triple::loongarch32:
   case Triple::loongarch64:
   case Triple::msp430:
@@ -1767,6 +1774,7 @@ bool Triple::isLittleEndian() const {
   case Triple::kalimba:
   case Triple::le32:
   case Triple::le64:
+  case Triple::leg:
   case Triple::loongarch32:
   case Triple::loongarch64:
   case Triple::mips64el:
