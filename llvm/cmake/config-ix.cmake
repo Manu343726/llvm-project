@@ -457,7 +457,10 @@ endif()
 # By default, we target the host, but this can be overridden at CMake
 # invocation time.
 include(GetHostTriple)
-get_host_triple(LLVM_INFERRED_HOST_TRIPLE)
+#For some reason CMake is not able to infer the host triple inside the linux docker container,
+#so we leave this commented for now and manually set the triple manually with the LLVM_HOST_TRIPLE
+#parameter
+#get_host_triple(LLVM_INFERRED_HOST_TRIPLE)
 
 set(LLVM_HOST_TRIPLE "${LLVM_INFERRED_HOST_TRIPLE}" CACHE STRING
     "Host on which LLVM binaries will run")

@@ -1,0 +1,73 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "binaryDir": "${sourceDir}/../build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+                "LLVM_TARGETS_TO_BUILD": "X86",
+                "LLVM_EXPERIMENTAL_TARGETS_TO_BUILD": "LEG",
+                "LLVM_ENABLE_PROJECTS": "clang"
+            }
+        },
+        {
+            "name": "MinGW",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/../build_mingw",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "generator": "MinGW Makefiles"
+        },
+        {
+            "name": "Visual Studio 2022",
+            "inherits": "default",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "generator": "Visual Studio 17 2022"
+        },
+        {
+            "name": "Linux GCC",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/../build_docker_linux_gcc",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "LLVM_HOST_TRIPLE": "x86_64-linux-gnu"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "MinGW",
+            "configurePreset": "MinGW",
+            "jobs": 12
+        },
+        {
+            "name": "MinGW verbose makefile",
+            "inherits": "MinGW",
+            "verbose": true
+        },
+        {
+            "name": "Visual Studio 2022",
+            "configurePreset": "Visual Studio 2022",
+            "jobs": 12
+        }
+    ]
+}
