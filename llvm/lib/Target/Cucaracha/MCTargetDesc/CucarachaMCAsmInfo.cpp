@@ -24,17 +24,12 @@ using namespace llvm;
 void CucarachaELFMCAsmInfo::anchor() {}
 
 CucarachaELFMCAsmInfo::CucarachaELFMCAsmInfo(const Triple &TheTriple) {
-  bool isV9 = (TheTriple.getArch() == Triple::cucarachav9);
-  IsLittleEndian = (TheTriple.getArch() == Triple::cucarachael);
-
-  if (isV9) {
-    CodePointerSize = CalleeSaveStackSlotSize = 8;
-  }
+  IsLittleEndian = true; //(TheTriple.getArch() == Triple::cucarachael);
 
   Data16bitsDirective = "\t.half\t";
   Data32bitsDirective = "\t.word\t";
   // .xword is only supported by V9.
-  Data64bitsDirective = (isV9) ? "\t.xword\t" : nullptr;
+  Data64bitsDirective = nullptr;
   ZeroDirective = "\t.skip\t";
   CommentString = "!";
   SupportsDebugInformation = true;
@@ -48,7 +43,7 @@ const MCExpr *CucarachaELFMCAsmInfo::getExprForPersonalitySymbol(
     const MCSymbol *Sym, unsigned Encoding, MCStreamer &Streamer) const {
   if (Encoding & dwarf::DW_EH_PE_pcrel) {
     MCContext &Ctx = Streamer.getContext();
-    return CucarachaMCExpr::create(CucarachaMCExpr::VK_Cucaracha_R_DISP32,
+    return CucarachaMCExpr::create(CucarachaMCExpr::VK_CUCARACHA_R_DISP32,
                                    MCSymbolRefExpr::create(Sym, Ctx), Ctx);
   }
 
@@ -59,7 +54,7 @@ const MCExpr *CucarachaELFMCAsmInfo::getExprForFDESymbol(
     const MCSymbol *Sym, unsigned Encoding, MCStreamer &Streamer) const {
   if (Encoding & dwarf::DW_EH_PE_pcrel) {
     MCContext &Ctx = Streamer.getContext();
-    return CucarachaMCExpr::create(CucarachaMCExpr::VK_Cucaracha_R_DISP32,
+    return CucarachaMCExpr::create(CucarachaMCExpr::VK_CUCARACHA_R_DISP32,
                                    MCSymbolRefExpr::create(Sym, Ctx), Ctx);
   }
   return MCAsmInfo::getExprForFDESymbol(Sym, Encoding, Streamer);

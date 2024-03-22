@@ -39,7 +39,7 @@ const MCExpr *CucarachaELFTargetObjectFile::getTTypeGlobalReference(
     }
 
     MCContext &Ctx = getContext();
-    return CucarachaMCExpr::create(CucarachaMCExpr::VK_Cucaracha_R_DISP32,
+    return CucarachaMCExpr::create(CucarachaMCExpr::VK_CUCARACHA_R_DISP32,
                                    MCSymbolRefExpr::create(SSym, Ctx), Ctx);
   }
 

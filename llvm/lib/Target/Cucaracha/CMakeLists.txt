@@ -15,8 +15,6 @@ tablegen(LLVM CucarachaGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(CucarachaCommonTableGen)
 
 add_llvm_target(CucarachaCodeGen
-  DelaySlotFiller.cpp
-  LeonPasses.cpp
   CucarachaAsmPrinter.cpp
   CucarachaInstrInfo.cpp
   CucarachaISelDAGToDAG.cpp

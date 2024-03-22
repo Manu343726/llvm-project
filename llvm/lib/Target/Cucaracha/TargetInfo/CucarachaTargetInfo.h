@@ -15,8 +15,6 @@ namespace llvm {
 class Target;
 
 Target &getTheCucarachaTarget();
-Target &getTheCucarachaV9Target();
-Target &getTheCucarachaelTarget();
 
 } // namespace llvm
 

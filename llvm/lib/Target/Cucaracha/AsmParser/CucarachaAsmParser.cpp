@@ -611,7 +611,7 @@ bool CucarachaAsmParser::expandSET(MCInst &Inst, SMLoc IDLoc,
   if (!IsEffectivelyImm13) {
     MCInst TmpInst;
     const MCExpr *Expr =
-        adjustPICRelocation(CucarachaMCExpr::VK_Cucaracha_HI, ValExpr);
+        adjustPICRelocation(CucarachaMCExpr::VK_CUCARACHA_HI, ValExpr);
     TmpInst.setLoc(IDLoc);
     TmpInst.setOpcode(SP::SETHIi);
     TmpInst.addOperand(MCRegOp);
@@ -636,7 +636,7 @@ bool CucarachaAsmParser::expandSET(MCInst &Inst, SMLoc IDLoc,
     if (IsEffectivelyImm13)
       Expr = ValExpr;
     else
-      Expr = adjustPICRelocation(CucarachaMCExpr::VK_Cucaracha_LO, ValExpr);
+      Expr = adjustPICRelocation(CucarachaMCExpr::VK_CUCARACHA_LO, ValExpr);
     TmpInst.setLoc(IDLoc);
     TmpInst.setOpcode(SP::ORri);
     TmpInst.addOperand(MCRegOp);
@@ -881,15 +881,15 @@ CucarachaAsmParser::parseTailRelocSym(OperandVector &Operands) {
     case TailRelocKind::Load_GOT:
       // Non-TLS relocations on ld (or ldx).
       // ld [%rr + %rr], %rr, %rel(sym)
-      return VK == CucarachaMCExpr::VK_Cucaracha_GOTDATA_OP;
+      return VK == CucarachaMCExpr::VK_CUCARACHA_GOTDATA_OP;
     case TailRelocKind::Add_TLS:
       // TLS relocations on add.
       // add %rr, %rr, %rr, %rel(sym)
       switch (VK) {
-      case CucarachaMCExpr::VK_Cucaracha_TLS_GD_ADD:
-      case CucarachaMCExpr::VK_Cucaracha_TLS_IE_ADD:
-      case CucarachaMCExpr::VK_Cucaracha_TLS_LDM_ADD:
-      case CucarachaMCExpr::VK_Cucaracha_TLS_LDO_ADD:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_GD_ADD:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_IE_ADD:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_ADD:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_ADD:
         return true;
       default:
         return false;
@@ -898,8 +898,8 @@ CucarachaAsmParser::parseTailRelocSym(OperandVector &Operands) {
       // TLS relocations on ld (or ldx).
       // ld[x] %addr, %rr, %rel(sym)
       switch (VK) {
-      case CucarachaMCExpr::VK_Cucaracha_TLS_IE_LD:
-      case CucarachaMCExpr::VK_Cucaracha_TLS_IE_LDX:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LD:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LDX:
         return true;
       default:
         return false;
@@ -908,8 +908,8 @@ CucarachaAsmParser::parseTailRelocSym(OperandVector &Operands) {
       // TLS relocations on call.
       // call sym, %rel(sym)
       switch (VK) {
-      case CucarachaMCExpr::VK_Cucaracha_TLS_GD_CALL:
-      case CucarachaMCExpr::VK_Cucaracha_TLS_LDM_CALL:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_GD_CALL:
+      case CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_CALL:
         return true;
       default:
         return false;
@@ -933,7 +933,7 @@ CucarachaAsmParser::parseTailRelocSym(OperandVector &Operands) {
 
   StringRef Name = getParser().getTok().getIdentifier();
   CucarachaMCExpr::VariantKind VK = CucarachaMCExpr::parseVariantKind(Name);
-  if (VK == CucarachaMCExpr::VK_Cucaracha_None) {
+  if (VK == CucarachaMCExpr::VK_CUCARACHA_None) {
     Error(getLoc(), "invalid operand modifier");
     return MatchOperand_ParseFail;
   }
@@ -1029,8 +1029,8 @@ CucarachaAsmParser::parseCallTarget(OperandVector &Operands) {
 
   bool IsPic = getContext().getObjectFileInfo()->isPositionIndependent();
   CucarachaMCExpr::VariantKind Kind =
-      IsPic ? CucarachaMCExpr::VK_Cucaracha_WPLT30
-            : CucarachaMCExpr::VK_Cucaracha_WDISP30;
+      IsPic ? CucarachaMCExpr::VK_CUCARACHA_WPLT30
+            : CucarachaMCExpr::VK_CUCARACHA_WDISP30;
 
   const MCExpr *DestExpr =
       CucarachaMCExpr::create(Kind, DestValue, getContext());
@@ -1182,13 +1182,13 @@ OperandMatchResultTy CucarachaAsmParser::parseCucarachaAsmOperand(
 
     int64_t Res;
     if (!EVal->evaluateAsAbsolute(Res)) {
-      CucarachaMCExpr::VariantKind Kind = CucarachaMCExpr::VK_Cucaracha_13;
+      CucarachaMCExpr::VariantKind Kind = CucarachaMCExpr::VK_CUCARACHA_13;
 
       if (getContext().getObjectFileInfo()->isPositionIndependent()) {
         if (isCall)
-          Kind = CucarachaMCExpr::VK_Cucaracha_WPLT30;
+          Kind = CucarachaMCExpr::VK_CUCARACHA_WPLT30;
         else
-          Kind = CucarachaMCExpr::VK_Cucaracha_GOT13;
+          Kind = CucarachaMCExpr::VK_CUCARACHA_GOT13;
       }
       EVal = CucarachaMCExpr::create(Kind, EVal, getContext());
     }
@@ -1506,13 +1506,13 @@ CucarachaAsmParser::adjustPICRelocation(CucarachaMCExpr::VariantKind VK,
     switch (VK) {
     default:
       break;
-    case CucarachaMCExpr::VK_Cucaracha_LO:
-      VK = (hasGOTReference(subExpr) ? CucarachaMCExpr::VK_Cucaracha_PC10
-                                     : CucarachaMCExpr::VK_Cucaracha_GOT10);
+    case CucarachaMCExpr::VK_CUCARACHA_LO:
+      VK = (hasGOTReference(subExpr) ? CucarachaMCExpr::VK_CUCARACHA_PC10
+                                     : CucarachaMCExpr::VK_CUCARACHA_GOT10);
       break;
-    case CucarachaMCExpr::VK_Cucaracha_HI:
-      VK = (hasGOTReference(subExpr) ? CucarachaMCExpr::VK_Cucaracha_PC22
-                                     : CucarachaMCExpr::VK_Cucaracha_GOT22);
+    case CucarachaMCExpr::VK_CUCARACHA_HI:
+      VK = (hasGOTReference(subExpr) ? CucarachaMCExpr::VK_CUCARACHA_PC22
+                                     : CucarachaMCExpr::VK_CUCARACHA_GOT22);
       break;
     }
   }
@@ -1530,19 +1530,19 @@ bool CucarachaAsmParser::matchCucarachaAsmModifiers(const MCExpr *&EVal,
 
   CucarachaMCExpr::VariantKind VK = CucarachaMCExpr::parseVariantKind(name);
   switch (VK) {
-  case CucarachaMCExpr::VK_Cucaracha_None:
+  case CucarachaMCExpr::VK_CUCARACHA_None:
     Error(getLoc(), "invalid operand modifier");
     return false;
 
-  case CucarachaMCExpr::VK_Cucaracha_GOTDATA_OP:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_GD_ADD:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_GD_CALL:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_IE_ADD:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_IE_LD:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_IE_LDX:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_LDM_ADD:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_LDM_CALL:
-  case CucarachaMCExpr::VK_Cucaracha_TLS_LDO_ADD:
+  case CucarachaMCExpr::VK_CUCARACHA_GOTDATA_OP:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_GD_ADD:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_GD_CALL:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_IE_ADD:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LD:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LDX:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_ADD:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_CALL:
+  case CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_ADD:
     // These are special-cased at tablegen level.
     return false;
 
@@ -1565,8 +1565,6 @@ bool CucarachaAsmParser::matchCucarachaAsmModifiers(const MCExpr *&EVal,
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaAsmParser() {
   RegisterMCAsmParser<CucarachaAsmParser> A(getTheCucarachaTarget());
-  RegisterMCAsmParser<CucarachaAsmParser> B(getTheCucarachaV9Target());
-  RegisterMCAsmParser<CucarachaAsmParser> C(getTheCucarachaelTarget());
 }
 
 #define GET_REGISTER_MATCHER

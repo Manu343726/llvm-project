@@ -83,7 +83,7 @@ static MCOperand createCucarachaMCOperand(CucarachaMCExpr::VariantKind Kind,
   return MCOperand::createExpr(expr);
 }
 static MCOperand createPCXCallOP(MCSymbol *Label, MCContext &OutContext) {
-  return createCucarachaMCOperand(CucarachaMCExpr::VK_Cucaracha_WDISP30, Label,
+  return createCucarachaMCOperand(CucarachaMCExpr::VK_CUCARACHA_WDISP30, Label,
                                   OutContext);
 }
 
@@ -171,30 +171,30 @@ void CucarachaAsmPrinter::LowerGETPCXAndEmitMCInsts(
     default:
       llvm_unreachable("Unsupported absolute code model");
     case CodeModel::Small:
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_Cucaracha_HI,
-               CucarachaMCExpr::VK_Cucaracha_LO, MCRegOP, OutContext, STI);
+      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_HI,
+               CucarachaMCExpr::VK_CUCARACHA_LO, MCRegOP, OutContext, STI);
       break;
     case CodeModel::Medium: {
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_Cucaracha_H44,
-               CucarachaMCExpr::VK_Cucaracha_M44, MCRegOP, OutContext, STI);
+      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_H44,
+               CucarachaMCExpr::VK_CUCARACHA_M44, MCRegOP, OutContext, STI);
       MCOperand imm =
           MCOperand::createExpr(MCConstantExpr::create(12, OutContext));
       EmitSHL(*OutStreamer, MCRegOP, imm, MCRegOP, STI);
-      MCOperand lo = createCucarachaMCOperand(CucarachaMCExpr::VK_Cucaracha_L44,
+      MCOperand lo = createCucarachaMCOperand(CucarachaMCExpr::VK_CUCARACHA_L44,
                                               GOTLabel, OutContext);
       EmitOR(*OutStreamer, MCRegOP, lo, MCRegOP, STI);
       break;
     }
     case CodeModel::Large: {
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_Cucaracha_HH,
-               CucarachaMCExpr::VK_Cucaracha_HM, MCRegOP, OutContext, STI);
+      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_HH,
+               CucarachaMCExpr::VK_CUCARACHA_HM, MCRegOP, OutContext, STI);
       MCOperand imm =
           MCOperand::createExpr(MCConstantExpr::create(32, OutContext));
       EmitSHL(*OutStreamer, MCRegOP, imm, MCRegOP, STI);
       // Use register %o7 to load the lower 32 bits.
       MCOperand RegO7 = MCOperand::createReg(SP::O7);
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_Cucaracha_HI,
-               CucarachaMCExpr::VK_Cucaracha_LO, RegO7, OutContext, STI);
+      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_HI,
+               CucarachaMCExpr::VK_CUCARACHA_LO, RegO7, OutContext, STI);
       EmitADD(*OutStreamer, MCRegOP, RegO7, MCRegOP, STI);
     }
     }
@@ -220,12 +220,12 @@ void CucarachaAsmPrinter::LowerGETPCXAndEmitMCInsts(
   EmitCall(*OutStreamer, Callee, STI);
   OutStreamer->emitLabel(SethiLabel);
   MCOperand hiImm =
-      createPCXRelExprOp(CucarachaMCExpr::VK_Cucaracha_PC22, GOTLabel,
+      createPCXRelExprOp(CucarachaMCExpr::VK_CUCARACHA_PC22, GOTLabel,
                          StartLabel, SethiLabel, OutContext);
   EmitSETHI(*OutStreamer, hiImm, MCRegOP, STI);
   OutStreamer->emitLabel(EndLabel);
   MCOperand loImm =
-      createPCXRelExprOp(CucarachaMCExpr::VK_Cucaracha_PC10, GOTLabel,
+      createPCXRelExprOp(CucarachaMCExpr::VK_CUCARACHA_PC10, GOTLabel,
                          StartLabel, EndLabel, OutContext);
   EmitOR(*OutStreamer, MCRegOP, loImm, MCRegOP, STI);
   EmitADD(*OutStreamer, MCRegOP, RegO7, MCRegOP, STI);
@@ -283,48 +283,48 @@ void CucarachaAsmPrinter::printOperand(const MachineInstr *MI, int opNum,
   // Verify the target flags.
   if (MO.isGlobal() || MO.isSymbol() || MO.isCPI()) {
     if (MI->getOpcode() == SP::CALL)
-      assert(TF == CucarachaMCExpr::VK_Cucaracha_None &&
+      assert(TF == CucarachaMCExpr::VK_CUCARACHA_None &&
              "Cannot handle target flags on call address");
     else if (MI->getOpcode() == SP::SETHIi || MI->getOpcode() == SP::SETHIXi)
-      assert((TF == CucarachaMCExpr::VK_Cucaracha_HI ||
-              TF == CucarachaMCExpr::VK_Cucaracha_H44 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_HH ||
-              TF == CucarachaMCExpr::VK_Cucaracha_LM ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_GD_HI22 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LDM_HI22 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LDO_HIX22 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_IE_HI22 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LE_HIX22) &&
+      assert((TF == CucarachaMCExpr::VK_CUCARACHA_HI ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_H44 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_HH ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_LM ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_HI22 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_HI22 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_HIX22 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_HI22 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LE_HIX22) &&
              "Invalid target flags for address operand on sethi");
     else if (MI->getOpcode() == SP::TLS_CALL)
-      assert((TF == CucarachaMCExpr::VK_Cucaracha_None ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_GD_CALL ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LDM_CALL) &&
+      assert((TF == CucarachaMCExpr::VK_CUCARACHA_None ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_CALL ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_CALL) &&
              "Cannot handle target flags on tls call address");
     else if (MI->getOpcode() == SP::TLS_ADDrr)
-      assert((TF == CucarachaMCExpr::VK_Cucaracha_TLS_GD_ADD ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LDM_ADD ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LDO_ADD ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_IE_ADD) &&
+      assert((TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_ADD ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_ADD ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_ADD ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_ADD) &&
              "Cannot handle target flags on add for TLS");
     else if (MI->getOpcode() == SP::TLS_LDrr)
-      assert(TF == CucarachaMCExpr::VK_Cucaracha_TLS_IE_LD &&
+      assert(TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LD &&
              "Cannot handle target flags on ld for TLS");
     else if (MI->getOpcode() == SP::TLS_LDXrr)
-      assert(TF == CucarachaMCExpr::VK_Cucaracha_TLS_IE_LDX &&
+      assert(TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LDX &&
              "Cannot handle target flags on ldx for TLS");
     else if (MI->getOpcode() == SP::XORri || MI->getOpcode() == SP::XORXri)
-      assert((TF == CucarachaMCExpr::VK_Cucaracha_TLS_LDO_LOX10 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LE_LOX10) &&
+      assert((TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_LOX10 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LE_LOX10) &&
              "Cannot handle target flags on xor for TLS");
     else
-      assert((TF == CucarachaMCExpr::VK_Cucaracha_LO ||
-              TF == CucarachaMCExpr::VK_Cucaracha_M44 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_L44 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_HM ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_GD_LO10 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_LDM_LO10 ||
-              TF == CucarachaMCExpr::VK_Cucaracha_TLS_IE_LO10) &&
+      assert((TF == CucarachaMCExpr::VK_CUCARACHA_LO ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_M44 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_L44 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_HM ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_LO10 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_LO10 ||
+              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LO10) &&
              "Invalid target flags for small address operand");
   }
 #endif
@@ -429,6 +429,4 @@ bool CucarachaAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 // Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaAsmPrinter() {
   RegisterAsmPrinter<CucarachaAsmPrinter> X(getTheCucarachaTarget());
-  RegisterAsmPrinter<CucarachaAsmPrinter> Y(getTheCucarachaV9Target());
-  RegisterAsmPrinter<CucarachaAsmPrinter> Z(getTheCucarachaelTarget());
 }

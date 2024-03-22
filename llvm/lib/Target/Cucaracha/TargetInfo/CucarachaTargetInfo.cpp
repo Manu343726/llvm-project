@@ -15,20 +15,8 @@ Target &llvm::getTheCucarachaTarget() {
   static Target TheCucarachaTarget;
   return TheCucarachaTarget;
 }
-Target &llvm::getTheCucarachaV9Target() {
-  static Target TheCucarachaV9Target;
-  return TheCucarachaV9Target;
-}
-Target &llvm::getTheCucarachaelTarget() {
-  static Target TheCucarachaelTarget;
-  return TheCucarachaelTarget;
-}
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaTargetInfo() {
   RegisterTarget<Triple::cucaracha, /*HasJIT=*/false> X(
       getTheCucarachaTarget(), "cucaracha", "Cucaracha", "Cucaracha");
-  RegisterTarget<Triple::cucarachav9, /*HasJIT=*/false> Y(
-      getTheCucarachaV9Target(), "cucarachav9", "Cucaracha V9", "Cucaracha");
-  RegisterTarget<Triple::cucarachael, /*HasJIT=*/false> Z(
-      getTheCucarachaelTarget(), "cucarachael", "Cucaracha LE", "Cucaracha");
 }

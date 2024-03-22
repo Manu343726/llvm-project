@@ -133,14 +133,12 @@ namespace {
 class CucarachaAsmBackend : public MCAsmBackend {
 protected:
   const Target &TheTarget;
-  bool Is64Bit;
 
 public:
   CucarachaAsmBackend(const Target &T)
       : MCAsmBackend(StringRef(T.getName()) == "cucarachael" ? support::little
                                                              : support::big),
-        TheTarget(T), Is64Bit(StringRef(TheTarget.getName()) == "cucarachav9") {
-  }
+        TheTarget(T) {}
 
   unsigned getNumFixupKinds() const override {
     return Cucaracha::NumTargetFixupKinds;
@@ -152,11 +150,11 @@ public:
 #define ELF_RELOC(X, Y) .Case(#X, Y)
 #include "llvm/BinaryFormat/ELFRelocs/Cucaracha.def"
 #undef ELF_RELOC
-               .Case("BFD_RELOC_NONE", ELF::R_Cucaracha_NONE)
-               .Case("BFD_RELOC_8", ELF::R_Cucaracha_8)
-               .Case("BFD_RELOC_16", ELF::R_Cucaracha_16)
-               .Case("BFD_RELOC_32", ELF::R_Cucaracha_32)
-               .Case("BFD_RELOC_64", ELF::R_Cucaracha_64)
+               .Case("BFD_RELOC_NONE", ELF::R_CUCARACHA_NONE)
+               .Case("BFD_RELOC_8", ELF::R_CUCARACHA_8)
+               .Case("BFD_RELOC_16", ELF::R_CUCARACHA_16)
+               .Case("BFD_RELOC_32", ELF::R_CUCARACHA_32)
+               .Case("BFD_RELOC_64", ELF::R_CUCARACHA_64)
                .Default(-1u);
     if (Type == -1u)
       return std::nullopt;
@@ -256,7 +254,7 @@ public:
         {"fixup_cucaracha_gotdata_op", 0, 0, 0},
     };
 
-    // Fixup kinds from .reloc directive are like R_Cucaracha_NONE. They do
+    // Fixup kinds from .reloc directive are like R_CUCARACHA_NONE. They do
     // not require any extra processing.
     if (Kind >= FirstLiteralRelocationKind)
       return MCAsmBackend::getFixupKindInfo(FK_NONE);
@@ -366,7 +364,7 @@ public:
   std::unique_ptr<MCObjectTargetWriter>
   createObjectTargetWriter() const override {
     uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(OSType);
-    return createCucarachaELFObjectWriter(Is64Bit, OSABI);
+    return createCucarachaELFObjectWriter(OSABI);
   }
 };
 

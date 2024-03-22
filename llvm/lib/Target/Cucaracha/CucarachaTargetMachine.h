@@ -21,6 +21,8 @@
 
 namespace llvm {
 
+/// Cucaracha 32-bit target machine
+///
 class CucarachaTargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   CucarachaSubtarget Subtarget;
@@ -32,7 +34,7 @@ public:
                          StringRef FS, const TargetOptions &Options,
                          std::optional<Reloc::Model> RM,
                          std::optional<CodeModel::Model> CM,
-                         CodeGenOpt::Level OL, bool JIT, bool is64bit);
+                         CodeGenOpt::Level OL, bool JIT);
   ~CucarachaTargetMachine() override;
 
   const CucarachaSubtarget *getSubtargetImpl() const { return &Subtarget; }
@@ -47,43 +49,6 @@ public:
   MachineFunctionInfo *
   createMachineFunctionInfo(BumpPtrAllocator &Allocator, const Function &F,
                             const TargetSubtargetInfo *STI) const override;
-};
-
-/// Cucaracha 32-bit target machine
-///
-class CucarachaV8TargetMachine : public CucarachaTargetMachine {
-  virtual void anchor();
-
-public:
-  CucarachaV8TargetMachine(const Target &T, const Triple &TT, StringRef CPU,
-                           StringRef FS, const TargetOptions &Options,
-                           std::optional<Reloc::Model> RM,
-                           std::optional<CodeModel::Model> CM,
-                           CodeGenOpt::Level OL, bool JIT);
-};
-
-/// Cucaracha 64-bit target machine
-///
-class CucarachaV9TargetMachine : public CucarachaTargetMachine {
-  virtual void anchor();
-
-public:
-  CucarachaV9TargetMachine(const Target &T, const Triple &TT, StringRef CPU,
-                           StringRef FS, const TargetOptions &Options,
-                           std::optional<Reloc::Model> RM,
-                           std::optional<CodeModel::Model> CM,
-                           CodeGenOpt::Level OL, bool JIT);
-};
-
-class CucarachaelTargetMachine : public CucarachaTargetMachine {
-  virtual void anchor();
-
-public:
-  CucarachaelTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
-                           StringRef FS, const TargetOptions &Options,
-                           std::optional<Reloc::Model> RM,
-                           std::optional<CodeModel::Model> CM,
-                           CodeGenOpt::Level OL, bool JIT);
 };
 
 } // end namespace llvm

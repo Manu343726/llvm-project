@@ -1023,8 +1023,8 @@ CucarachaTargetLowering::LowerCall_32(TargetLowering::CallLoweringInfo &CLI,
   // If the callee is a GlobalAddress node (quite common, every direct call is)
   // turn it into a TargetGlobalAddress node so that legalize doesn't hack it.
   // Likewise ExternalSymbol -> TargetExternalSymbol.
-  unsigned TF = isPositionIndependent() ? CucarachaMCExpr::VK_Cucaracha_WPLT30
-                                        : CucarachaMCExpr::VK_Cucaracha_WDISP30;
+  unsigned TF = isPositionIndependent() ? CucarachaMCExpr::VK_CUCARACHA_WPLT30
+                                        : CucarachaMCExpr::VK_CUCARACHA_WDISP30;
   if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee))
     Callee = DAG.getTargetGlobalAddress(G->getGlobal(), dl, MVT::i32, 0, TF);
   else if (ExternalSymbolSDNode *E = dyn_cast<ExternalSymbolSDNode>(Callee))
@@ -1371,8 +1371,8 @@ CucarachaTargetLowering::LowerCall_64(TargetLowering::CallLoweringInfo &CLI,
   // Likewise ExternalSymbol -> TargetExternalSymbol.
   SDValue Callee = CLI.Callee;
   bool hasReturnsTwice = hasReturnsTwiceAttr(DAG, Callee, CLI.CB);
-  unsigned TF = isPositionIndependent() ? CucarachaMCExpr::VK_Cucaracha_WPLT30
-                                        : CucarachaMCExpr::VK_Cucaracha_WDISP30;
+  unsigned TF = isPositionIndependent() ? CucarachaMCExpr::VK_CUCARACHA_WPLT30
+                                        : CucarachaMCExpr::VK_CUCARACHA_WDISP30;
   if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee))
     Callee = DAG.getTargetGlobalAddress(G->getGlobal(), DL, PtrVT, 0, TF);
   else if (ExternalSymbolSDNode *E = dyn_cast<ExternalSymbolSDNode>(Callee))
@@ -2174,11 +2174,11 @@ SDValue CucarachaTargetLowering::makeAddress(SDValue Op,
       // This is the pic13 code model, the GOT is known to be smaller than 8KiB.
       Idx = DAG.getNode(
           SPISD::Lo, DL, Op.getValueType(),
-          withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_GOT13, DAG));
+          withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_GOT13, DAG));
     } else {
       // This is the pic32 code model, the GOT is known to be smaller than 4GB.
-      Idx = makeHiLoPair(Op, CucarachaMCExpr::VK_Cucaracha_GOT22,
-                         CucarachaMCExpr::VK_Cucaracha_GOT10, DAG);
+      Idx = makeHiLoPair(Op, CucarachaMCExpr::VK_CUCARACHA_GOT22,
+                         CucarachaMCExpr::VK_CUCARACHA_GOT10, DAG);
     }
 
     SDValue GlobalBase = DAG.getNode(SPISD::GLOBAL_BASE_REG, DL, VT);
@@ -2197,24 +2197,24 @@ SDValue CucarachaTargetLowering::makeAddress(SDValue Op,
     llvm_unreachable("Unsupported absolute code model");
   case CodeModel::Small:
     // abs32.
-    return makeHiLoPair(Op, CucarachaMCExpr::VK_Cucaracha_HI,
-                        CucarachaMCExpr::VK_Cucaracha_LO, DAG);
+    return makeHiLoPair(Op, CucarachaMCExpr::VK_CUCARACHA_HI,
+                        CucarachaMCExpr::VK_CUCARACHA_LO, DAG);
   case CodeModel::Medium: {
     // abs44.
-    SDValue H44 = makeHiLoPair(Op, CucarachaMCExpr::VK_Cucaracha_H44,
-                               CucarachaMCExpr::VK_Cucaracha_M44, DAG);
+    SDValue H44 = makeHiLoPair(Op, CucarachaMCExpr::VK_CUCARACHA_H44,
+                               CucarachaMCExpr::VK_CUCARACHA_M44, DAG);
     H44 = DAG.getNode(ISD::SHL, DL, VT, H44, DAG.getConstant(12, DL, MVT::i32));
-    SDValue L44 = withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_L44, DAG);
+    SDValue L44 = withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_L44, DAG);
     L44 = DAG.getNode(SPISD::Lo, DL, VT, L44);
     return DAG.getNode(ISD::ADD, DL, VT, H44, L44);
   }
   case CodeModel::Large: {
     // abs64.
-    SDValue Hi = makeHiLoPair(Op, CucarachaMCExpr::VK_Cucaracha_HH,
-                              CucarachaMCExpr::VK_Cucaracha_HM, DAG);
+    SDValue Hi = makeHiLoPair(Op, CucarachaMCExpr::VK_CUCARACHA_HH,
+                              CucarachaMCExpr::VK_CUCARACHA_HM, DAG);
     Hi = DAG.getNode(ISD::SHL, DL, VT, Hi, DAG.getConstant(32, DL, MVT::i32));
-    SDValue Lo = makeHiLoPair(Op, CucarachaMCExpr::VK_Cucaracha_HI,
-                              CucarachaMCExpr::VK_Cucaracha_LO, DAG);
+    SDValue Lo = makeHiLoPair(Op, CucarachaMCExpr::VK_CUCARACHA_HI,
+                              CucarachaMCExpr::VK_CUCARACHA_LO, DAG);
     return DAG.getNode(ISD::ADD, DL, VT, Hi, Lo);
   }
   }
@@ -2251,17 +2251,17 @@ CucarachaTargetLowering::LowerGlobalTLSAddress(SDValue Op,
 
   if (model == TLSModel::GeneralDynamic || model == TLSModel::LocalDynamic) {
     unsigned HiTF = ((model == TLSModel::GeneralDynamic)
-                         ? CucarachaMCExpr::VK_Cucaracha_TLS_GD_HI22
-                         : CucarachaMCExpr::VK_Cucaracha_TLS_LDM_HI22);
+                         ? CucarachaMCExpr::VK_CUCARACHA_TLS_GD_HI22
+                         : CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_HI22);
     unsigned LoTF = ((model == TLSModel::GeneralDynamic)
-                         ? CucarachaMCExpr::VK_Cucaracha_TLS_GD_LO10
-                         : CucarachaMCExpr::VK_Cucaracha_TLS_LDM_LO10);
+                         ? CucarachaMCExpr::VK_CUCARACHA_TLS_GD_LO10
+                         : CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_LO10);
     unsigned addTF = ((model == TLSModel::GeneralDynamic)
-                          ? CucarachaMCExpr::VK_Cucaracha_TLS_GD_ADD
-                          : CucarachaMCExpr::VK_Cucaracha_TLS_LDM_ADD);
+                          ? CucarachaMCExpr::VK_CUCARACHA_TLS_GD_ADD
+                          : CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_ADD);
     unsigned callTF = ((model == TLSModel::GeneralDynamic)
-                           ? CucarachaMCExpr::VK_Cucaracha_TLS_GD_CALL
-                           : CucarachaMCExpr::VK_Cucaracha_TLS_LDM_CALL);
+                           ? CucarachaMCExpr::VK_CUCARACHA_TLS_GD_CALL
+                           : CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_CALL);
 
     SDValue HiLo = makeHiLoPair(Op, HiTF, LoTF, DAG);
     SDValue Base = DAG.getNode(SPISD::GLOBAL_BASE_REG, DL, PtrVT);
@@ -2298,20 +2298,20 @@ CucarachaTargetLowering::LowerGlobalTLSAddress(SDValue Op,
 
     SDValue Hi = DAG.getNode(
         SPISD::Hi, DL, PtrVT,
-        withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_TLS_LDO_HIX22, DAG));
+        withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_HIX22, DAG));
     SDValue Lo = DAG.getNode(
         SPISD::Lo, DL, PtrVT,
-        withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_TLS_LDO_LOX10, DAG));
+        withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_LOX10, DAG));
     HiLo = DAG.getNode(ISD::XOR, DL, PtrVT, Hi, Lo);
     return DAG.getNode(
         SPISD::TLS_ADD, DL, PtrVT, Ret, HiLo,
-        withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_TLS_LDO_ADD, DAG));
+        withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_ADD, DAG));
   }
 
   if (model == TLSModel::InitialExec) {
     unsigned ldTF =
-        ((PtrVT == MVT::i64) ? CucarachaMCExpr::VK_Cucaracha_TLS_IE_LDX
-                             : CucarachaMCExpr::VK_Cucaracha_TLS_IE_LD);
+        ((PtrVT == MVT::i64) ? CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LDX
+                             : CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LD);
 
     SDValue Base = DAG.getNode(SPISD::GLOBAL_BASE_REG, DL, PtrVT);
 
@@ -2320,23 +2320,23 @@ CucarachaTargetLowering::LowerGlobalTLSAddress(SDValue Op,
     MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
     MFI.setHasCalls(true);
 
-    SDValue TGA = makeHiLoPair(Op, CucarachaMCExpr::VK_Cucaracha_TLS_IE_HI22,
-                               CucarachaMCExpr::VK_Cucaracha_TLS_IE_LO10, DAG);
+    SDValue TGA = makeHiLoPair(Op, CucarachaMCExpr::VK_CUCARACHA_TLS_IE_HI22,
+                               CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LO10, DAG);
     SDValue Ptr = DAG.getNode(ISD::ADD, DL, PtrVT, Base, TGA);
     SDValue Offset = DAG.getNode(SPISD::TLS_LD, DL, PtrVT, Ptr,
                                  withTargetFlags(Op, ldTF, DAG));
     return DAG.getNode(
         SPISD::TLS_ADD, DL, PtrVT, DAG.getRegister(SP::G7, PtrVT), Offset,
-        withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_TLS_IE_ADD, DAG));
+        withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_TLS_IE_ADD, DAG));
   }
 
   assert(model == TLSModel::LocalExec);
   SDValue Hi = DAG.getNode(
       SPISD::Hi, DL, PtrVT,
-      withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_TLS_LE_HIX22, DAG));
+      withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_TLS_LE_HIX22, DAG));
   SDValue Lo = DAG.getNode(
       SPISD::Lo, DL, PtrVT,
-      withTargetFlags(Op, CucarachaMCExpr::VK_Cucaracha_TLS_LE_LOX10, DAG));
+      withTargetFlags(Op, CucarachaMCExpr::VK_CUCARACHA_TLS_LE_LOX10, DAG));
   SDValue Offset = DAG.getNode(ISD::XOR, DL, PtrVT, Hi, Lo);
 
   return DAG.getNode(ISD::ADD, DL, PtrVT, DAG.getRegister(SP::G7, PtrVT),

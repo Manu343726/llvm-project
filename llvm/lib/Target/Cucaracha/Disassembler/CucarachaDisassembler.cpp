@@ -51,10 +51,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaDisassembler() {
   // Register the disassembler.
   TargetRegistry::RegisterMCDisassembler(getTheCucarachaTarget(),
                                          createCucarachaDisassembler);
-  TargetRegistry::RegisterMCDisassembler(getTheCucarachaV9Target(),
-                                         createCucarachaDisassembler);
-  TargetRegistry::RegisterMCDisassembler(getTheCucarachaelTarget(),
-                                         createCucarachaDisassembler);
 }
 
 static const unsigned IntRegDecoderTable[] = {

@@ -66,13 +66,6 @@ static MCRegisterInfo *createCucarachaMCRegisterInfo(const Triple &TT) {
   return X;
 }
 
-static MCSubtargetInfo *
-createCucarachaMCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS) {
-  if (CPU.empty())
-    CPU = (TT.getArch() == Triple::cucarachav9) ? "v9" : "v8";
-  return createCucarachaMCSubtargetInfoImpl(TT, CPU, /*TuneCPU*/ CPU, FS);
-}
-
 static MCTargetStreamer *
 createObjectTargetStreamer(MCStreamer &S, const MCSubtargetInfo &STI) {
   return new CucarachaTargetELFStreamer(S);
@@ -100,19 +93,13 @@ static MCInstPrinter *createCucarachaMCInstPrinter(const Triple &T,
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfoFn X(getTheCucarachaTarget(), createCucarachaMCAsmInfo);
-  RegisterMCAsmInfoFn Y(getTheCucarachaV9Target(), createCucarachaV9MCAsmInfo);
-  RegisterMCAsmInfoFn Z(getTheCucarachaelTarget(), createCucarachaMCAsmInfo);
 
-  for (Target *T : {&getTheCucarachaTarget(), &getTheCucarachaV9Target(),
-                    &getTheCucarachaelTarget()}) {
+  for (Target *T : {&getTheCucarachaTarget()}) {
     // Register the MC instruction info.
     TargetRegistry::RegisterMCInstrInfo(*T, createCucarachaMCInstrInfo);
 
     // Register the MC register info.
     TargetRegistry::RegisterMCRegInfo(*T, createCucarachaMCRegisterInfo);
-
-    // Register the MC subtarget info.
-    TargetRegistry::RegisterMCSubtargetInfo(*T, createCucarachaMCSubtargetInfo);
 
     // Register the MC Code Emitter.
     TargetRegistry::RegisterMCCodeEmitter(*T, createCucarachaMCCodeEmitter);

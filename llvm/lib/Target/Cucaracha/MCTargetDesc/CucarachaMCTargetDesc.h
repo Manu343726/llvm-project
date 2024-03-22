@@ -36,7 +36,7 @@ MCAsmBackend *createCucarachaAsmBackend(const Target &T,
                                         const MCRegisterInfo &MRI,
                                         const MCTargetOptions &Options);
 std::unique_ptr<MCObjectTargetWriter>
-createCucarachaELFObjectWriter(bool Is64Bit, uint8_t OSABI);
+createCucarachaELFObjectWriter(uint8_t OSABI);
 } // namespace llvm
 
 // Defines symbolic names for Cucaracha registers.  This defines a mapping from
