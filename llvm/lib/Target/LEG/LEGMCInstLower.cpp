@@ -28,11 +28,6 @@ using namespace llvm;
 LEGMCInstLower::LEGMCInstLower(class AsmPrinter &asmprinter)
     : Printer(asmprinter) {}
 
-void LEGMCInstLower::Initialize(Mangler *M, MCContext *C) {
-  Mang = M;
-  Ctx = C;
-}
-
 MCOperand LEGMCInstLower::LowerSymbolOperand(const MachineOperand &MO,
                                              MachineOperandType MOTy,
                                              unsigned Offset) const {
@@ -69,16 +64,17 @@ MCOperand LEGMCInstLower::LowerSymbolOperand(const MachineOperand &MO,
   MCSymbolRefExpr::VariantKind Kind = MCSymbolRefExpr::VK_None;
 
   switch (Option) {
-    default:
-      break;
-    case LEGII::MO_LO16:
-      Kind = MCSymbolRefExpr::VK_LEG_LO;
-      break;
-    case LEGII::MO_HI16:
-      Kind = MCSymbolRefExpr::VK_LEG_HI;
-      break;
+  default:
+    break;
+  case LEGII::MO_LO16:
+    Kind = MCSymbolRefExpr::VK_LEG_LO;
+    break;
+  case LEGII::MO_HI16:
+    Kind = MCSymbolRefExpr::VK_LEG_HI;
+    break;
   }
-  const MCSymbolRefExpr *MCSym = MCSymbolRefExpr::create(Symbol, Kind, *Ctx);
+  const MCSymbolRefExpr *MCSym =
+      MCSymbolRefExpr::create(Symbol, Kind, Printer.OutContext);
 
   if (!Offset) {
     return MCOperand::createExpr(MCSym);
@@ -87,8 +83,10 @@ MCOperand LEGMCInstLower::LowerSymbolOperand(const MachineOperand &MO,
   // Assume offset is never negative.
   assert(Offset > 0);
 
-  const MCConstantExpr *OffsetExpr = MCConstantExpr::create(Offset, *Ctx);
-  const MCBinaryExpr *Add = MCBinaryExpr::createAdd(MCSym, OffsetExpr, *Ctx);
+  const MCConstantExpr *OffsetExpr =
+      MCConstantExpr::create(Offset, Printer.OutContext);
+  const MCBinaryExpr *Add =
+      MCBinaryExpr::createAdd(MCSym, OffsetExpr, Printer.OutContext);
   return MCOperand::createExpr(Add);
 }
 

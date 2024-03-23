@@ -24,13 +24,10 @@ class AsmPrinter;
 /// \brief This class is used to lower an MachineInstr into an MCInst.
 class LLVM_LIBRARY_VISIBILITY LEGMCInstLower {
   typedef MachineOperand::MachineOperandType MachineOperandType;
-  MCContext *Ctx;
-  Mangler *Mang;
   AsmPrinter &Printer;
 
 public:
   LEGMCInstLower(class AsmPrinter &asmprinter);
-  void Initialize(Mangler *mang, MCContext *C);
   void Lower(const MachineInstr *MI, MCInst &OutMI) const;
   MCOperand LowerOperand(const MachineOperand &MO, unsigned offset = 0) const;
 
@@ -38,7 +35,6 @@ private:
   MCOperand LowerSymbolOperand(const MachineOperand &MO,
                                MachineOperandType MOTy, unsigned Offset) const;
 };
-}
+} // namespace llvm
 
 #endif
-
