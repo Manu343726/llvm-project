@@ -39,9 +39,23 @@
             "generator": "Visual Studio 17 2022"
         },
         {
-            "name": "Linux GCC",
+            "name": "Linux GCC Docker",
             "inherits": "default",
             "binaryDir": "${sourceDir}/../build_docker_linux_gcc",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "LLVM_HOST_TRIPLE": "x86_64-linux-gnu"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "Linux GCC",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/../build_linux_gcc",
             "generator": "Unix Makefiles",
             "cacheVariables": {
                 "LLVM_HOST_TRIPLE": "x86_64-linux-gnu"
@@ -68,6 +82,11 @@
             "name": "Visual Studio 2022",
             "configurePreset": "Visual Studio 2022",
             "jobs": 12
+        },
+        {
+            "name": "Linux GCC",
+            "configurePreset": "Linux GCC",
+            "jobs": 1
         }
     ]
 }
