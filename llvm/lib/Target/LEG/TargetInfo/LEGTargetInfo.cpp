@@ -16,6 +16,6 @@ Target &llvm::getTheLEGTarget() {
 }
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeLEGTargetInfo() {
-  RegisterTarget<Triple::sparc, /*HasJIT=*/false> X(getTheLEGTarget(), "leg",
-                                                    "LEG", "LEG");
+  RegisterTarget<Triple::leg, /*HasJIT=*/false> X(getTheLEGTarget(), "leg",
+                                                  "LEG", "LEG");
 }
