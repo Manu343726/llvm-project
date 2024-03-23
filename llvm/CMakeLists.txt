@@ -1332,3 +1332,6 @@ endif()
 if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
   add_subdirectory(utils/llvm-locstats)
 endif()
+
+#Generate .clangd file with correct compilation database path:
+configure_file("${CMAKE_SOURCE_DIR}/../.clangd.in" "${CMAKE_SOURCE_DIR}/../.clangd")
