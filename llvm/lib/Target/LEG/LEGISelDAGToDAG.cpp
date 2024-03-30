@@ -12,15 +12,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "LEG.h"
+#include "LEGISelLowering.h"
 #include "LEGTargetMachine.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
+#include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "LEGInstrInfo.h"
+#include "MCTargetDesc/LEGMCTargetDesc.h"
 
 using namespace llvm;
 
@@ -38,6 +43,7 @@ public:
 
   void Select(SDNode *N) override;
 
+  void SelectFrameIndex(SDNode *N);
   bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset);
 
   virtual StringRef getPassName() const override {
@@ -119,12 +125,27 @@ void LEGDAGToDAGISel::SelectConditionalBranch(SDNode *N) {
   CurDAG->SelectNodeTo(N, LEG::Bcc, MVT::Other, BranchOps);
 }
 
+void LEGDAGToDAGISel::SelectFrameIndex(SDNode *N) {
+  FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>(N);
+  EVT PtrVT = getTargetLowering()->getPointerTy(CurDAG->getDataLayout());
+  const auto Address = CurDAG->getTargetFrameIndex(FIN->getIndex(), PtrVT);
+  auto *const Mov = CurDAG->getMachineNode(LEG::MOVi32, N, MVT::i32, Address);
+  CurDAG->ReplaceAllUsesWith(N, Mov);
+}
+
 void LEGDAGToDAGISel::Select(SDNode *N) {
+  if (N->isMachineOpcode()) {
+    N->setNodeId(-1);
+    return; // Already selected.
+  }
+
   switch (N->getOpcode()) {
   case ISD::Constant:
     return SelectMoveImmediate(N);
   case ISD::BR_CC:
     return SelectConditionalBranch(N);
+  case ISD::FrameIndex:
+    return SelectFrameIndex(N);
   }
 
   return SelectCode(N);

@@ -72,5 +72,4 @@ def LEGimm8 : Operand<i32>, ImmLeaf<i32, [{
 // Complex Pattern Definitions.
 //===----------------------------------------------------------------------===//
 
-def addr : ComplexPattern<iPTR, 2, "SelectAddr", [], []>;
-
+def addr : ComplexPattern<iPTR, 2, "SelectAddr", [frameindex], []>;
