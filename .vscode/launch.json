@@ -13,9 +13,11 @@
                 "--target=leg",
                 "-ffreestanding",
                 "-S",
-                "main.cpp",
+                "-O3",
+                "-Ileg_examples",
+                "leg_examples/main.cpp",
                 "-o",
-                "main.s"
+                "leg_examples/main.s"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

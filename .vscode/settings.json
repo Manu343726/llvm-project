@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "${workspaceFolder}/llvm"
+    "cmake.sourceDirectory": "${workspaceFolder}/llvm",
+    "clangd.path": "${workspaceFolder}/build_linux_gcc/bin/clangd"
 }

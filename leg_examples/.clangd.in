@@ -1,0 +1,2 @@
+CompileFlags: 
+  Add: [--target=leg, -ffreestanding, -std=c++20, -I@CMAKE_SOURCE_DIR@/../leg_examples]

@@ -26,6 +26,7 @@
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
+#include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/IR/CallingConv.h"
@@ -172,11 +173,11 @@ SDValue LEGTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   }
 
   // We only support calling global addresses.
-  GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee);
-  assert(G && "We only support the calling of global addresses");
-
   EVT PtrVT = getPointerTy(DAG.getDataLayout());
-  Callee = DAG.getGlobalAddress(G->getGlobal(), Loc, PtrVT, 0);
+
+  if (auto *G = dyn_cast<GlobalAddressSDNode>(Callee); G) {
+    Callee = DAG.getGlobalAddress(G->getGlobal(), Loc, PtrVT, 0);
+  }
 
   std::vector<SDValue> Ops;
   Ops.push_back(Chain);

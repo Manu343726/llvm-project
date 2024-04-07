@@ -1335,3 +1335,5 @@ endif()
 
 #Generate .clangd file with correct compilation database path:
 configure_file("${CMAKE_SOURCE_DIR}/../.clangd.in" "${CMAKE_SOURCE_DIR}/../.clangd")
+#Generate .clangd file for LEG examples
+configure_file("${CMAKE_SOURCE_DIR}/../leg_examples/.clangd.in" "${CMAKE_SOURCE_DIR}/../leg_examples/.clangd")

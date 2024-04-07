@@ -14,7 +14,7 @@
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "LLVM_TARGETS_TO_BUILD": "X86;Sparc",
                 "LLVM_EXPERIMENTAL_TARGETS_TO_BUILD": "LEG",
-                "LLVM_ENABLE_PROJECTS": "clang"
+                "LLVM_ENABLE_PROJECTS": "clang;clang-tools-extra"
             }
         },
         {

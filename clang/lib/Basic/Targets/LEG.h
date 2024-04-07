@@ -40,7 +40,9 @@ public:
   }
 
   void getTargetDefines(const LangOptions &Opts,
-                        MacroBuilder &Builder) const override {}
+                        MacroBuilder &Builder) const override {
+    Builder.defineMacro("__leg__");
+  }
   ArrayRef<Builtin::Info> getTargetBuiltins() const override {
     return std::nullopt;
   }

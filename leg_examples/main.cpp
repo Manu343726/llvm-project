@@ -1,6 +1,4 @@
-static_assert(sizeof(int) == 4);
-static_assert(sizeof(void *) == 4);
-using Int32 = int;
+#include <kernel/interrupt_table.hpp>
 
 template <Int32 Width, Int32 Height> struct Framebuffer {
   using Pixel = Int32;
@@ -18,10 +16,15 @@ template <Int32 Width, Int32 Height> void Framebuffer<Width, Height>::clear() {
   }
 }
 
-int main() {
+void _main() {
   Framebuffer<1024, 768> fb;
-
   fb.clear();
+}
+
+int main() {
+  kernel::InterruptTable{{{kernel::Interrupts::Reset, _main}}};
+
+  kernel::raise_interrupt(kernel::Interrupts::Reset);
 
   return 0;
 }
