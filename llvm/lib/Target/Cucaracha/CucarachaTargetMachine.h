@@ -1,9 +1,10 @@
 //===-- CucarachaTargetMachine.h - Define TargetMachine for Cucaracha ---*- C++
 //-*-===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -11,23 +12,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_Cucaracha_CucarachaTARGETMACHINE_H
-#define LLVM_LIB_TARGET_Cucaracha_CucarachaTARGETMACHINE_H
+#ifndef CucarachaTARGETMACHINE_H
+#define CucarachaTARGETMACHINE_H
 
-#include "CucarachaInstrInfo.h"
+#include "Cucaracha.h"
+#include "CucarachaFrameLowering.h"
+#include "CucarachaISelLowering.h"
 #include "CucarachaSubtarget.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
-#include <optional>
 
 namespace llvm {
 
-/// Cucaracha 32-bit target machine
-///
 class CucarachaTargetMachine : public LLVMTargetMachine {
-  std::unique_ptr<TargetLoweringObjectFile> TLOF;
   CucarachaSubtarget Subtarget;
-  bool is64Bit;
-  mutable StringMap<std::unique_ptr<CucarachaSubtarget>> SubtargetMap;
+  std::unique_ptr<TargetLoweringObjectFile> TLOF;
 
 public:
   CucarachaTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
@@ -35,20 +34,20 @@ public:
                          std::optional<Reloc::Model> RM,
                          std::optional<CodeModel::Model> CM,
                          CodeGenOpt::Level OL, bool JIT);
-  ~CucarachaTargetMachine() override;
 
   const CucarachaSubtarget *getSubtargetImpl() const { return &Subtarget; }
-  const CucarachaSubtarget *getSubtargetImpl(const Function &) const override;
+
+  virtual const TargetSubtargetInfo *
+  getSubtargetImpl(const Function &) const override {
+    return &Subtarget;
+  }
 
   // Pass Pipeline Configuration
-  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
+  virtual TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
+
   TargetLoweringObjectFile *getObjFileLowering() const override {
     return TLOF.get();
   }
-
-  MachineFunctionInfo *
-  createMachineFunctionInfo(BumpPtrAllocator &Allocator, const Function &F,
-                            const TargetSubtargetInfo *STI) const override;
 };
 
 } // end namespace llvm

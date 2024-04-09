@@ -78,3 +78,4 @@ pythonenv*
 
 # Ignore output og LEG examples:
 leg_examples/*.s*
+leg_examples/*.o*

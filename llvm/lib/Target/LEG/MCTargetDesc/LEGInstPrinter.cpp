@@ -41,6 +41,7 @@ void LEGInstPrinter::printInst(const MCInst *MI, uint64_t Address,
   printAnnotation(O, Annot);
 }
 
+namespace {
 const char *condCodeToString(ISD::CondCode CC) {
   switch (CC) {
   default:
@@ -89,7 +90,7 @@ const char *condCodeToString(ISD::CondCode CC) {
     return "ne";
   }
 }
-
+} // namespace
 // Print a condition code (e.g. for predication).
 void LEGInstPrinter::printCondCode(const MCInst *MI, unsigned OpNum,
                                    const MCSubtargetInfo &STI, raw_ostream &O) {

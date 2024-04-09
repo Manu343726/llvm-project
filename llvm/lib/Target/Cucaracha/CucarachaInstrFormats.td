@@ -1,63 +1,51 @@
 //===-- CucarachaInstrFormats.td - Cucaracha Instruction Formats ---*- tablegen -*-===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
-include "CucarachaRegisterInfo.td"
-
-class CucarachaOpcode<bits<8> value> {
-  bits<8> Value = value;
-}
-
-class CucInstr<dag outs, dag ins, string asmstr, list<dag> pattern>
-   : Instruction {
-  let Namespace = "CUC";
-
+//===----------------------------------------------------------------------===//
+// Instruction format superclass
+//===----------------------------------------------------------------------===//
+class InstCucaracha<dag outs, dag ins, string asmstr, list<dag> pattern>
+    : Instruction {
   field bits<32> Inst;
 
-  let OutOperandList = outs;
-  let InOperandList = ins;
+  let Namespace = "Cucaracha";
+  dag OutOperandList = outs;
+  dag InOperandList = ins;
   let AsmString   = asmstr;
   let Pattern = pattern;
+  let Size = 4;
+
+  // Always execute - no condition flags for this example
+  let Inst{31-28} = 0b1110;
 }
 
-// Pseudo instruction base class
-class IPseudo<dag outs, dag ins, list<dag> pattern>
-: CucInstr<outs, ins, "", pattern> {
+// Cucaracha pseudo instructions format
+class CucarachaPseudoInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+    : InstCucaracha<outs, ins, asmstr, pattern> {
   let isPseudo = 1;
 }
 
-// Instruction base class
-class I<CucarachaOpcode opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
-  : CucInstr<outs, ins, asmstr, pattern> {
-  let Inst{7-0} = opcode.Value
+class ALUInst<bits<4> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+    : InstCucaracha<outs, ins, asmstr, pattern> {
+  let Inst{27-26} = 0b00;
+  let Inst{24-21} = opcode;
 }
 
-// Instructions with a single register operand
-class Ir<CucarachaOpcode opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
-  : I<opcode, outs, ins, asmstr, pattern> {
-  bits<4> R;
-  let Inst{11-8} = R;
+class MulInst<bits<7> opcode, dag outs, dag ins, string asmstr,
+              list<dag> pattern> : InstCucaracha<outs, ins, asmstr, pattern> {
+  let Inst{27-21} = opcode;
+  let Inst{20}    = 0;  // We never update flags
+  let Inst{7-4}   = 0b1001;
 }
 
-// Instructions with two register operands (source, destination)
-class Irr<CucarachaOpcode opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
-  : I<opcode, outs, ins, asmstr, pattern> {
-  bits<4> Rs;
-  bits<4> Rd;
-  let Inst{11-8} = Rd;
-  let Inst{15-12} = Rs;
+class BranchInst<bits<4> opcode, dag outs, dag ins,
+                 string asmstr, list<dag> pattern>
+    : InstCucaracha<outs, ins, asmstr, pattern> {
+  let Inst{27-24} = opcode;
 }
-
-// Instructions with one register operand and one immediate operand
-class Iri<CucarachaOpcode opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
-  : Ir<opcode, outs, ins, asmstr, pattern> {
-  bits<16> Imm;
-  let Inst{28-12} = Imm;
-}
-
-def wimm : ImmLeaf<i32, [{return isInt<32>(Imm);}]>;
-def fimm : ImmLeaf<f32, [{return isFloat<32>(Imm);}]>;

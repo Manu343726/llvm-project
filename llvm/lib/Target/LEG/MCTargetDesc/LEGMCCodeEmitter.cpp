@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
 #define DEBUG_TYPE "mccodeemitter"
 #include "MCTargetDesc/LEGFixupKinds.h"
 #include "MCTargetDesc/LEGMCTargetDesc.h"
@@ -109,8 +110,10 @@ unsigned LEGMCCodeEmitter::getMachineOpValue(const MCInst &MI,
   assert(Kind == MCExpr::SymbolRef);
 
   unsigned FixupKind;
-  switch (cast<MCSymbolRefExpr>(Expr)->getKind()) {
+  const auto exprKind = cast<MCSymbolRefExpr>(Expr)->getKind();
+  switch (exprKind) {
   default:
+    LLVM_DEBUG(dbgs() << "unsupported fixup kind: " << exprKind);
     llvm_unreachable("Unknown fixup kind!");
   case MCSymbolRefExpr::VK_LEG_LO: {
     FixupKind = LEG::fixup_leg_mov_lo16_pcrel;

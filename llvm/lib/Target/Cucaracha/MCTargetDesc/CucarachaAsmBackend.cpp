@@ -1,9 +1,10 @@
 //===-- CucarachaAsmBackend.cpp - Cucaracha Assembler Backend
-//---------------------===//
+//-------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
@@ -11,368 +12,182 @@
 #include "MCTargetDesc/CucarachaMCTargetDesc.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/MC/MCAsmBackend.h"
+#include "llvm/MC/MCAssembler.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCFixupKindInfo.h"
+#include "llvm/MC/MCMachObjectWriter.h"
 #include "llvm/MC/MCObjectWriter.h"
+#include "llvm/MC/MCSectionELF.h"
+#include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/EndianStream.h"
+#include "llvm/Support/Endian.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
-static unsigned adjustFixupValue(unsigned Kind, uint64_t Value) {
-  switch (Kind) {
-  default:
-    llvm_unreachable("Unknown fixup kind!");
-  case FK_Data_1:
-  case FK_Data_2:
-  case FK_Data_4:
-  case FK_Data_8:
-    return Value;
-
-  case Cucaracha::fixup_cucaracha_wplt30:
-  case Cucaracha::fixup_cucaracha_call30:
-    return (Value >> 2) & 0x3fffffff;
-
-  case Cucaracha::fixup_cucaracha_br22:
-    return (Value >> 2) & 0x3fffff;
-
-  case Cucaracha::fixup_cucaracha_br19:
-    return (Value >> 2) & 0x7ffff;
-
-  case Cucaracha::fixup_cucaracha_br16: {
-    // A.3 Branch on Integer Register with Prediction (BPr)
-    // Inst{21-20} = d16hi;
-    // Inst{13-0}  = d16lo;
-    unsigned d16hi = (Value >> 16) & 0x3;
-    unsigned d16lo = (Value >> 2) & 0x3fff;
-    return (d16hi << 20) | d16lo;
-  }
-
-  case Cucaracha::fixup_cucaracha_hix22:
-    return (~Value >> 10) & 0x3fffff;
-
-  case Cucaracha::fixup_cucaracha_pc22:
-  case Cucaracha::fixup_cucaracha_got22:
-  case Cucaracha::fixup_cucaracha_tls_gd_hi22:
-  case Cucaracha::fixup_cucaracha_tls_ldm_hi22:
-  case Cucaracha::fixup_cucaracha_tls_ie_hi22:
-  case Cucaracha::fixup_cucaracha_hi22:
-  case Cucaracha::fixup_cucaracha_lm:
-    return (Value >> 10) & 0x3fffff;
-
-  case Cucaracha::fixup_cucaracha_got13:
-  case Cucaracha::fixup_cucaracha_13:
-    return Value & 0x1fff;
-
-  case Cucaracha::fixup_cucaracha_lox10:
-    return (Value & 0x3ff) | 0x1c00;
-
-  case Cucaracha::fixup_cucaracha_pc10:
-  case Cucaracha::fixup_cucaracha_got10:
-  case Cucaracha::fixup_cucaracha_tls_gd_lo10:
-  case Cucaracha::fixup_cucaracha_tls_ldm_lo10:
-  case Cucaracha::fixup_cucaracha_tls_ie_lo10:
-  case Cucaracha::fixup_cucaracha_lo10:
-    return Value & 0x3ff;
-
-  case Cucaracha::fixup_cucaracha_h44:
-    return (Value >> 22) & 0x3fffff;
-
-  case Cucaracha::fixup_cucaracha_m44:
-    return (Value >> 12) & 0x3ff;
-
-  case Cucaracha::fixup_cucaracha_l44:
-    return Value & 0xfff;
-
-  case Cucaracha::fixup_cucaracha_hh:
-    return (Value >> 42) & 0x3fffff;
-
-  case Cucaracha::fixup_cucaracha_hm:
-    return (Value >> 32) & 0x3ff;
-
-  case Cucaracha::fixup_cucaracha_tls_ldo_hix22:
-  case Cucaracha::fixup_cucaracha_tls_le_hix22:
-  case Cucaracha::fixup_cucaracha_tls_ldo_lox10:
-  case Cucaracha::fixup_cucaracha_tls_le_lox10:
-    assert(Value == 0 && "Cucaracha TLS relocs expect zero Value");
-    return 0;
-
-  case Cucaracha::fixup_cucaracha_tls_gd_add:
-  case Cucaracha::fixup_cucaracha_tls_gd_call:
-  case Cucaracha::fixup_cucaracha_tls_ldm_add:
-  case Cucaracha::fixup_cucaracha_tls_ldm_call:
-  case Cucaracha::fixup_cucaracha_tls_ldo_add:
-  case Cucaracha::fixup_cucaracha_tls_ie_ld:
-  case Cucaracha::fixup_cucaracha_tls_ie_ldx:
-  case Cucaracha::fixup_cucaracha_tls_ie_add:
-  case Cucaracha::fixup_cucaracha_gotdata_lox10:
-  case Cucaracha::fixup_cucaracha_gotdata_hix22:
-  case Cucaracha::fixup_cucaracha_gotdata_op:
-    return 0;
-  }
-}
-
-/// getFixupKindNumBytes - The number of bytes the fixup may change.
-static unsigned getFixupKindNumBytes(unsigned Kind) {
-  switch (Kind) {
-  default:
-    return 4;
-  case FK_Data_1:
-    return 1;
-  case FK_Data_2:
-    return 2;
-  case FK_Data_8:
-    return 8;
-  }
-}
-
 namespace {
-class CucarachaAsmBackend : public MCAsmBackend {
-protected:
-  const Target &TheTarget;
-
+class CucarachaELFObjectWriter : public MCELFObjectTargetWriter {
 public:
-  CucarachaAsmBackend(const Target &T)
-      : MCAsmBackend(StringRef(T.getName()) == "cucarachael" ? support::little
-                                                             : support::big),
-        TheTarget(T) {}
+  CucarachaELFObjectWriter(uint8_t OSABI)
+      : MCELFObjectTargetWriter(/*Is64Bit*/ false, OSABI,
+                                /*ELF::EM_Cucaracha*/ ELF::EM_ARM,
+                                /*HasRelocationAddend*/ false) {}
+};
+
+class CucarachaAsmBackend : public MCAsmBackend {
+public:
+  CucarachaAsmBackend(const Target &T, const StringRef TT)
+      : MCAsmBackend(support::endianness::little) {}
+
+  ~CucarachaAsmBackend() {}
 
   unsigned getNumFixupKinds() const override {
     return Cucaracha::NumTargetFixupKinds;
   }
 
-  std::optional<MCFixupKind> getFixupKind(StringRef Name) const override {
-    unsigned Type;
-    Type = llvm::StringSwitch<unsigned>(Name)
-#define ELF_RELOC(X, Y) .Case(#X, Y)
-#include "llvm/BinaryFormat/ELFRelocs/Cucaracha.def"
-#undef ELF_RELOC
-               .Case("BFD_RELOC_NONE", ELF::R_CUCARACHA_NONE)
-               .Case("BFD_RELOC_8", ELF::R_CUCARACHA_8)
-               .Case("BFD_RELOC_16", ELF::R_CUCARACHA_16)
-               .Case("BFD_RELOC_32", ELF::R_CUCARACHA_32)
-               .Case("BFD_RELOC_64", ELF::R_CUCARACHA_64)
-               .Default(-1u);
-    if (Type == -1u)
-      return std::nullopt;
-    return static_cast<MCFixupKind>(FirstLiteralRelocationKind + Type);
-  }
-
   const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const override {
-    const static MCFixupKindInfo InfosBE[Cucaracha::NumTargetFixupKinds] = {
-        // name                    offset bits  flags
-        {"fixup_cucaracha_call30", 2, 30, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_br22", 10, 22, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_br19", 13, 19, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_br16", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_13", 19, 13, 0},
-        {"fixup_cucaracha_hi22", 10, 22, 0},
-        {"fixup_cucaracha_lo10", 22, 10, 0},
-        {"fixup_cucaracha_h44", 10, 22, 0},
-        {"fixup_cucaracha_m44", 22, 10, 0},
-        {"fixup_cucaracha_l44", 20, 12, 0},
-        {"fixup_cucaracha_hh", 10, 22, 0},
-        {"fixup_cucaracha_hm", 22, 10, 0},
-        {"fixup_cucaracha_lm", 10, 22, 0},
-        {"fixup_cucaracha_pc22", 10, 22, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_pc10", 22, 10, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_got22", 10, 22, 0},
-        {"fixup_cucaracha_got10", 22, 10, 0},
-        {"fixup_cucaracha_got13", 19, 13, 0},
-        {"fixup_cucaracha_wplt30", 2, 30, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_tls_gd_hi22", 10, 22, 0},
-        {"fixup_cucaracha_tls_gd_lo10", 22, 10, 0},
-        {"fixup_cucaracha_tls_gd_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_gd_call", 0, 0, 0},
-        {"fixup_cucaracha_tls_ldm_hi22", 10, 22, 0},
-        {"fixup_cucaracha_tls_ldm_lo10", 22, 10, 0},
-        {"fixup_cucaracha_tls_ldm_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_ldm_call", 0, 0, 0},
-        {"fixup_cucaracha_tls_ldo_hix22", 10, 22, 0},
-        {"fixup_cucaracha_tls_ldo_lox10", 22, 10, 0},
-        {"fixup_cucaracha_tls_ldo_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_ie_hi22", 10, 22, 0},
-        {"fixup_cucaracha_tls_ie_lo10", 22, 10, 0},
-        {"fixup_cucaracha_tls_ie_ld", 0, 0, 0},
-        {"fixup_cucaracha_tls_ie_ldx", 0, 0, 0},
-        {"fixup_cucaracha_tls_ie_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_le_hix22", 0, 0, 0},
-        {"fixup_cucaracha_tls_le_lox10", 0, 0, 0},
-        {"fixup_cucaracha_hix22", 10, 22, 0},
-        {"fixup_cucaracha_lox10", 19, 13, 0},
-        {"fixup_cucaracha_gotdata_hix22", 0, 0, 0},
-        {"fixup_cucaracha_gotdata_lox10", 0, 0, 0},
-        {"fixup_cucaracha_gotdata_op", 0, 0, 0},
+    const static MCFixupKindInfo Infos[Cucaracha::NumTargetFixupKinds] = {
+        // This table *must* be in the order that the fixup_* kinds are defined
+        // in
+        // CucarachaFixupKinds.h.
+        //
+        // Name                      Offset (bits) Size (bits)     Flags
+        {"fixup_leg_cucaracha_hi16_pcrel", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
+        {"fixup_leg_cucaracha_lo16_pcrel", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
     };
 
-    const static MCFixupKindInfo InfosLE[Cucaracha::NumTargetFixupKinds] = {
-        // name                    offset bits  flags
-        {"fixup_cucaracha_call30", 0, 30, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_br22", 0, 22, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_br19", 0, 19, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_br16", 32, 0, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_13", 0, 13, 0},
-        {"fixup_cucaracha_hi22", 0, 22, 0},
-        {"fixup_cucaracha_lo10", 0, 10, 0},
-        {"fixup_cucaracha_h44", 0, 22, 0},
-        {"fixup_cucaracha_m44", 0, 10, 0},
-        {"fixup_cucaracha_l44", 0, 12, 0},
-        {"fixup_cucaracha_hh", 0, 22, 0},
-        {"fixup_cucaracha_hm", 0, 10, 0},
-        {"fixup_cucaracha_lm", 0, 22, 0},
-        {"fixup_cucaracha_pc22", 0, 22, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_pc10", 0, 10, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_got22", 0, 22, 0},
-        {"fixup_cucaracha_got10", 0, 10, 0},
-        {"fixup_cucaracha_got13", 0, 13, 0},
-        {"fixup_cucaracha_wplt30", 0, 30, MCFixupKindInfo::FKF_IsPCRel},
-        {"fixup_cucaracha_tls_gd_hi22", 0, 22, 0},
-        {"fixup_cucaracha_tls_gd_lo10", 0, 10, 0},
-        {"fixup_cucaracha_tls_gd_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_gd_call", 0, 0, 0},
-        {"fixup_cucaracha_tls_ldm_hi22", 0, 22, 0},
-        {"fixup_cucaracha_tls_ldm_lo10", 0, 10, 0},
-        {"fixup_cucaracha_tls_ldm_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_ldm_call", 0, 0, 0},
-        {"fixup_cucaracha_tls_ldo_hix22", 0, 22, 0},
-        {"fixup_cucaracha_tls_ldo_lox10", 0, 10, 0},
-        {"fixup_cucaracha_tls_ldo_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_ie_hi22", 0, 22, 0},
-        {"fixup_cucaracha_tls_ie_lo10", 0, 10, 0},
-        {"fixup_cucaracha_tls_ie_ld", 0, 0, 0},
-        {"fixup_cucaracha_tls_ie_ldx", 0, 0, 0},
-        {"fixup_cucaracha_tls_ie_add", 0, 0, 0},
-        {"fixup_cucaracha_tls_le_hix22", 0, 0, 0},
-        {"fixup_cucaracha_tls_le_lox10", 0, 0, 0},
-        {"fixup_cucaracha_hix22", 0, 22, 0},
-        {"fixup_cucaracha_lox10", 0, 13, 0},
-        {"fixup_cucaracha_gotdata_hix22", 0, 0, 0},
-        {"fixup_cucaracha_gotdata_lox10", 0, 0, 0},
-        {"fixup_cucaracha_gotdata_op", 0, 0, 0},
-    };
-
-    // Fixup kinds from .reloc directive are like R_CUCARACHA_NONE. They do
-    // not require any extra processing.
-    if (Kind >= FirstLiteralRelocationKind)
-      return MCAsmBackend::getFixupKindInfo(FK_NONE);
-
-    if (Kind < FirstTargetFixupKind)
+    if (Kind < FirstTargetFixupKind) {
       return MCAsmBackend::getFixupKindInfo(Kind);
+    }
 
     assert(unsigned(Kind - FirstTargetFixupKind) < getNumFixupKinds() &&
            "Invalid kind!");
-    if (Endian == support::little)
-      return InfosLE[Kind - FirstTargetFixupKind];
-
-    return InfosBE[Kind - FirstTargetFixupKind];
+    return Infos[Kind - FirstTargetFixupKind];
   }
 
-  bool shouldForceRelocation(const MCAssembler &Asm, const MCFixup &Fixup,
-                             const MCValue &Target) override {
-    if (Fixup.getKind() >= FirstLiteralRelocationKind)
-      return true;
-    switch ((Cucaracha::Fixups)Fixup.getKind()) {
-    default:
-      return false;
-    case Cucaracha::fixup_cucaracha_wplt30:
-      if (Target.getSymA()->getSymbol().isTemporary())
-        return false;
-      [[fallthrough]];
-    case Cucaracha::fixup_cucaracha_tls_gd_hi22:
-    case Cucaracha::fixup_cucaracha_tls_gd_lo10:
-    case Cucaracha::fixup_cucaracha_tls_gd_add:
-    case Cucaracha::fixup_cucaracha_tls_gd_call:
-    case Cucaracha::fixup_cucaracha_tls_ldm_hi22:
-    case Cucaracha::fixup_cucaracha_tls_ldm_lo10:
-    case Cucaracha::fixup_cucaracha_tls_ldm_add:
-    case Cucaracha::fixup_cucaracha_tls_ldm_call:
-    case Cucaracha::fixup_cucaracha_tls_ldo_hix22:
-    case Cucaracha::fixup_cucaracha_tls_ldo_lox10:
-    case Cucaracha::fixup_cucaracha_tls_ldo_add:
-    case Cucaracha::fixup_cucaracha_tls_ie_hi22:
-    case Cucaracha::fixup_cucaracha_tls_ie_lo10:
-    case Cucaracha::fixup_cucaracha_tls_ie_ld:
-    case Cucaracha::fixup_cucaracha_tls_ie_ldx:
-    case Cucaracha::fixup_cucaracha_tls_ie_add:
-    case Cucaracha::fixup_cucaracha_tls_le_hix22:
-    case Cucaracha::fixup_cucaracha_tls_le_lox10:
-      return true;
-    }
-  }
-
-  /// fixupNeedsRelaxation - Target specific predicate for whether a given
-  /// fixup requires the associated instruction to be relaxed.
-  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
-                            const MCRelaxableFragment *DF,
-                            const MCAsmLayout &Layout) const override {
-    // FIXME.
-    llvm_unreachable("fixupNeedsRelaxation() unimplemented");
-    return false;
-  }
-  void relaxInstruction(MCInst &Inst,
-                        const MCSubtargetInfo &STI) const override {
-    // FIXME.
-    llvm_unreachable("relaxInstruction() unimplemented");
-  }
-
-  bool writeNopData(raw_ostream &OS, uint64_t Count,
-                    const MCSubtargetInfo *STI) const override {
-    // Cannot emit NOP with size not multiple of 32 bits.
-    if (Count % 4 != 0)
-      return false;
-
-    uint64_t NumNops = Count / 4;
-    for (uint64_t i = 0; i != NumNops; ++i)
-      support::endian::write<uint32_t>(OS, 0x01000000, Endian);
-
-    return true;
-  }
-};
-
-class ELFCucarachaAsmBackend : public CucarachaAsmBackend {
-  Triple::OSType OSType;
-
-public:
-  ELFCucarachaAsmBackend(const Target &T, Triple::OSType OSType)
-      : CucarachaAsmBackend(T), OSType(OSType) {}
+  /// processFixupValue - Target hook to process the literal value of a fixup
+  /// if necessary.
+  bool evaluateTargetFixup(const MCAssembler &Asm, const MCAsmLayout &Layout,
+                           const MCFixup &Fixup, const MCFragment *DF,
+                           const MCValue &Target, uint64_t &Value,
+                           bool &WasForced) override;
 
   void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                   const MCValue &Target, MutableArrayRef<char> Data,
                   uint64_t Value, bool IsResolved,
-                  const MCSubtargetInfo *STI) const override {
+                  const MCSubtargetInfo *STI) const override;
 
-    if (Fixup.getKind() >= FirstLiteralRelocationKind)
-      return;
-    Value = adjustFixupValue(Fixup.getKind(), Value);
-    if (!Value)
-      return; // Doesn't change encoding.
-
-    unsigned NumBytes = getFixupKindNumBytes(Fixup.getKind());
-    unsigned Offset = Fixup.getOffset();
-    // For each byte of the fragment that the fixup touches, mask in the bits
-    // from the fixup value. The Value has been "split up" into the
-    // appropriate bitfields above.
-    for (unsigned i = 0; i != NumBytes; ++i) {
-      unsigned Idx = Endian == support::little ? i : (NumBytes - 1) - i;
-      Data[Offset + Idx] |= uint8_t((Value >> (i * 8)) & 0xff);
-    }
+  bool mayNeedRelaxation(const MCInst &Inst,
+                         const MCSubtargetInfo &STI) const override {
+    return false;
   }
+
+  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
+                            const MCRelaxableFragment *DF,
+                            const MCAsmLayout &Layout) const override {
+    return false;
+  }
+
+  void relaxInstruction(MCInst &Inst,
+                        const MCSubtargetInfo &STI) const override {}
+
+  bool writeNopData(raw_ostream &OS, uint64_t Count,
+                    const MCSubtargetInfo *STI) const override {
+    if (Count == 0) {
+      return true;
+    }
+    return false;
+  }
+
+  unsigned getPointerSize() const { return 4; }
+};
+} // end anonymous namespace
+
+static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
+                                 MCContext *Ctx = NULL) {
+  unsigned Kind = Fixup.getKind();
+  switch (Kind) {
+  default:
+    // A normal fixup (usually as result of resolving an internal symbol when
+    // finishing the object file) we return tbe value as is since we didn't ask
+    // for the fixup as prt of iselowering orselves (Like the hi/lo16 cases
+    // bellow which are explictly asked by our instruction lowering so 32 bit
+    // immediate (usually addresses) move instructions can be encoded by means
+    // of two consecutive 16 bit moves)
+    return Value;
+  case Cucaracha::fixup_cucaracha_mov_hi16_pcrel:
+    Value >>= 16;
+  // Intentional fall-through
+  case Cucaracha::fixup_cucaracha_mov_lo16_pcrel:
+    unsigned Hi4 = (Value & 0xF000) >> 12;
+    unsigned Lo12 = Value & 0x0FFF;
+    // inst{19-16} = Hi4;
+    // inst{11-0} = Lo12;
+    Value = (Hi4 << 16) | (Lo12);
+    return Value;
+  }
+  return Value;
+}
+
+bool CucarachaAsmBackend::evaluateTargetFixup(
+    const MCAssembler &Asm, const MCAsmLayout &Layout, const MCFixup &Fixup,
+    const MCFragment *DF, const MCValue &Target, uint64_t &Value,
+    bool &WasForced) {
+  // We always have resolved fixups for now.
+  WasForced = true;
+  return adjustFixupValue(Fixup, Value, &Asm.getContext());
+}
+
+void CucarachaAsmBackend::applyFixup(const MCAssembler &Asm,
+                                     const MCFixup &Fixup,
+                                     const MCValue &Target,
+                                     MutableArrayRef<char> Data, uint64_t Value,
+                                     bool IsResolved,
+                                     const MCSubtargetInfo *STI) const {
+  unsigned NumBytes = 4;
+  Value = adjustFixupValue(Fixup, Value);
+  if (!Value) {
+    return; // Doesn't change encoding.
+  }
+
+  unsigned Offset = Fixup.getOffset();
+  assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
+
+  // For each byte of the fragment that the fixup touches, mask in the bits from
+  // the fixup value. The Value has been "split up" into the appropriate
+  // bitfields above.
+  for (unsigned i = 0; i != NumBytes; ++i) {
+    Data[Offset + i] |= uint8_t((Value >> (i * 8)) & 0xff);
+  }
+}
+
+namespace {
+
+class ELFCucarachaAsmBackend : public CucarachaAsmBackend {
+public:
+  uint8_t OSABI;
+  ELFCucarachaAsmBackend(const Target &T, const StringRef TT, uint8_t _OSABI)
+      : CucarachaAsmBackend(T, TT), OSABI(_OSABI) {}
 
   std::unique_ptr<MCObjectTargetWriter>
   createObjectTargetWriter() const override {
-    uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(OSType);
-    return createCucarachaELFObjectWriter(OSABI);
+    return llvm::createCucarachaELFObjectWriter(OSABI);
   }
 };
 
-} // end anonymous namespace
+} // namespace
 
 MCAsmBackend *llvm::createCucarachaAsmBackend(const Target &T,
                                               const MCSubtargetInfo &STI,
                                               const MCRegisterInfo &MRI,
                                               const MCTargetOptions &Options) {
-  return new ELFCucarachaAsmBackend(T, STI.getTargetTriple().getOS());
+  const uint8_t ABI =
+      MCELFObjectTargetWriter::getOSABI(STI.getTargetTriple().getOS());
+  return new ELFCucarachaAsmBackend(T, STI.getTargetTriple().getTriple(), ABI);
 }

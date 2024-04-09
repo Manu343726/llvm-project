@@ -1,4 +1,4 @@
-//===--- Cucaracha.h - declare cucaracha target feature support ---------*- C++
+//===--- Cucaracha.h - declare sparc target feature support ---------*- C++
 //-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -7,235 +7,76 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares Cucaracha TargetInfo objects.
+// This file declares Sparc TargetInfo objects.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_LIB_BASIC_TARGETS_CUCARACHA_H
-#define LLVM_CLANG_LIB_BASIC_TARGETS_CUCARACHA_H
+#ifndef LLVM_CLANG_LIB_BASIC_TARGETS_Cucaracha_H
+#define LLVM_CLANG_LIB_BASIC_TARGETS_Cucaracha_H
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Basic/TargetOptions.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/TargetParser/Triple.h"
+#include <optional>
+#include <string_view>
 namespace clang {
 namespace targets {
-// Shared base class for CUCARACHA v8 (32-bit) and CUCARACHA v9 (64-bit).
-class LLVM_LIBRARY_VISIBILITY CucarachaTargetInfo : public TargetInfo {
-  static const TargetInfo::GCCRegAlias GCCRegAliases[];
-  static const char *const GCCRegNames[];
-  bool SoftFloat;
+class CucarachaTargetInfo final : public TargetInfo {
 
 public:
-  CucarachaTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
-      : TargetInfo(Triple), SoftFloat(false) {}
+  CucarachaTargetInfo(const llvm::Triple &Triple,
+                      [[maybe_unused]] const TargetOptions &Opts)
+      : TargetInfo(Triple) {
+    BigEndian = false;
+    NoAsmVariants = true;
+    LongLongAlign = 32;
+    SuitableAlign = 32;
+    DoubleAlign = LongDoubleAlign = 32;
+    SizeType = UnsignedInt;
+    PtrDiffType = SignedInt;
+    IntPtrType = SignedInt;
+    WCharType = UnsignedChar;
+    WIntType = UnsignedInt;
+    UseZeroLengthBitfieldAlignment = true;
 
-  int getEHDataRegisterNumber(unsigned RegNo) const override {
-    if (RegNo == 0)
-      return 24;
-    if (RegNo == 1)
-      return 25;
-    return -1;
+    resetDataLayout(computeDataLayout(Triple, Opts));
   }
 
-  bool handleTargetFeatures(std::vector<std::string> &Features,
-                            DiagnosticsEngine &Diags) override {
-    // Check if software floating point is enabled
-    if (llvm::is_contained(Features, "+soft-float"))
-      SoftFloat = true;
-    return true;
-  }
   void getTargetDefines(const LangOptions &Opts,
-                        MacroBuilder &Builder) const override;
-
-  bool hasFeature(StringRef Feature) const override;
-
+                        MacroBuilder &Builder) const override {
+    Builder.defineMacro("__leg__");
+  }
   ArrayRef<Builtin::Info> getTargetBuiltins() const override {
-    // FIXME: Implement!
     return std::nullopt;
   }
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::VoidPtrBuiltinVaList;
   }
-  ArrayRef<const char *> getGCCRegNames() const override;
-  ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override;
+  std::string_view getClobbers() const override { return ""; }
+  ArrayRef<const char *> getGCCRegNames() const override {
+    return std::nullopt;
+  }
+  ArrayRef<GCCRegAlias> getGCCRegAliases() const override {
+    return std::nullopt;
+  }
   bool validateAsmConstraint(const char *&Name,
-                             TargetInfo::ConstraintInfo &info) const override {
-    // FIXME: Implement!
-    switch (*Name) {
-    case 'I': // Signed 13-bit constant
-    case 'J': // Zero
-    case 'K': // 32-bit constant with the low 12 bits clear
-    case 'L': // A constant in the range supported by movcc (11-bit signed imm)
-    case 'M': // A constant in the range supported by movrcc (19-bit signed imm)
-    case 'N': // Same as 'K' but zext (required for SIMode)
-    case 'O': // The constant 4096
-      return true;
-
-    case 'f':
-    case 'e':
-      info.setAllowsRegister();
-      return true;
-    }
+                             TargetInfo::ConstraintInfo &Info) const override {
     return false;
   }
-  std::string_view getClobbers() const override {
-    // FIXME: Implement!
-    return "";
+  int getEHDataRegisterNumber(unsigned RegNo) const override {
+    // R0=ExceptionPointerRegister R1=ExceptionSelectorRegister
+    return -1;
   }
 
-  // No Cucaracha V7 for now, the backend doesn't support it anyway.
-  enum CPUKind {
-    CK_GENERIC,
-    CK_V8,
-    CK_SUPERCUCARACHA,
-    CK_CUCARACHALITE,
-    CK_F934,
-    CK_HYPERCUCARACHA,
-    CK_CUCARACHALITE86X,
-    CK_CUCARACHALET,
-    CK_TSC701,
-    CK_V9,
-    CK_ULTRACUCARACHA,
-    CK_ULTRACUCARACHA3,
-    CK_NIAGARA,
-    CK_NIAGARA2,
-    CK_NIAGARA3,
-    CK_NIAGARA4,
-    CK_MYRIAD2100,
-    CK_MYRIAD2150,
-    CK_MYRIAD2155,
-    CK_MYRIAD2450,
-    CK_MYRIAD2455,
-    CK_MYRIAD2x5x,
-    CK_MYRIAD2080,
-    CK_MYRIAD2085,
-    CK_MYRIAD2480,
-    CK_MYRIAD2485,
-    CK_MYRIAD2x8x,
-    CK_LEON2,
-    CK_LEON2_AT697E,
-    CK_LEON2_AT697F,
-    CK_LEON3,
-    CK_LEON3_UT699,
-    CK_LEON3_GR712RC,
-    CK_LEON4,
-    CK_LEON4_GR740
-  } CPU = CK_GENERIC;
+private:
+  // Copied from the backend, see
+  // llvm/lib/Target/Cucaracha/CucarachaTargetMachine.cpp:computeDataLayout()
+  static std::string_view computeDataLayout(const llvm::Triple &TT,
+                                            const TargetOptions &Options) {
 
-  enum CPUGeneration {
-    CG_V8,
-    CG_V9,
-  };
-
-  CPUGeneration getCPUGeneration(CPUKind Kind) const;
-
-  CPUKind getCPUKind(StringRef Name) const;
-
-  bool isValidCPUName(StringRef Name) const override {
-    return getCPUKind(Name) != CK_GENERIC;
+    // XXX Build the triple from the arguments.
+    // This is hard-coded for now for this example target.
+    return "e-m:e-p:32:32-i1:8:32-i8:8:32-i16:16:32-i64:32-f64:32-a:0:32-n32";
   }
-
-  void fillValidCPUList(SmallVectorImpl<StringRef> &Values) const override;
-
-  bool setCPU(const std::string &Name) override {
-    CPU = getCPUKind(Name);
-    return CPU != CK_GENERIC;
-  }
-};
-
-// CUCARACHA v8 is the 32-bit mode selected by Triple::cucaracha.
-class LLVM_LIBRARY_VISIBILITY CucarachaV8TargetInfo
-    : public CucarachaTargetInfo {
-public:
-  CucarachaV8TargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : CucarachaTargetInfo(Triple, Opts) {
-    resetDataLayout("E-m:e-p:32:32-i64:64-f128:64-n32-S64");
-    // NetBSD / OpenBSD use long (same as llvm default); everyone else uses int.
-    switch (getTriple().getOS()) {
-    default:
-      SizeType = UnsignedInt;
-      IntPtrType = SignedInt;
-      PtrDiffType = SignedInt;
-      break;
-    case llvm::Triple::NetBSD:
-    case llvm::Triple::OpenBSD:
-      SizeType = UnsignedLong;
-      IntPtrType = SignedLong;
-      PtrDiffType = SignedLong;
-      break;
-    }
-    // Up to 32 bits (V8) or 64 bits (V9) are lock-free atomic, but we're
-    // willing to do atomic ops on up to 64 bits.
-    MaxAtomicPromoteWidth = 64;
-    if (getCPUGeneration(CPU) == CG_V9)
-      MaxAtomicInlineWidth = 64;
-    else
-      // FIXME: This isn't correct for plain V8 which lacks CAS,
-      // only for LEON 3+ and Myriad.
-      MaxAtomicInlineWidth = 32;
-  }
-
-  void getTargetDefines(const LangOptions &Opts,
-                        MacroBuilder &Builder) const override;
-
-  bool hasBitIntType() const override { return true; }
-};
-
-// CUCARACHAV8el is the 32-bit little-endian mode selected by
-// Triple::cucarachael.
-class LLVM_LIBRARY_VISIBILITY CucarachaV8elTargetInfo
-    : public CucarachaV8TargetInfo {
-public:
-  CucarachaV8elTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : CucarachaV8TargetInfo(Triple, Opts) {
-    resetDataLayout("e-m:e-p:32:32-i64:64-f128:64-n32-S64");
-  }
-};
-
-// CUCARACHA v9 is the 64-bit mode selected by Triple::cucarachav9.
-class LLVM_LIBRARY_VISIBILITY CucarachaV9TargetInfo
-    : public CucarachaTargetInfo {
-public:
-  CucarachaV9TargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : CucarachaTargetInfo(Triple, Opts) {
-    // FIXME: Support Cucaracha quad-precision long double?
-    resetDataLayout("E-m:e-i64:64-n32:64-S128");
-    // This is an LP64 platform.
-    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
-
-    // OpenBSD uses long long for int64_t and intmax_t.
-    if (getTriple().isOSOpenBSD())
-      IntMaxType = SignedLongLong;
-    else
-      IntMaxType = SignedLong;
-    Int64Type = IntMaxType;
-
-    // The CUCARACHAv8 System V ABI has long double 128-bits in size, but 64-bit
-    // aligned. The CUCARACHAv9 SCD 2.4.1 says 16-byte aligned.
-    LongDoubleWidth = 128;
-    LongDoubleAlign = 128;
-    SuitableAlign = 128;
-    LongDoubleFormat = &llvm::APFloat::IEEEquad();
-    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
-  }
-
-  void getTargetDefines(const LangOptions &Opts,
-                        MacroBuilder &Builder) const override;
-
-  bool isValidCPUName(StringRef Name) const override {
-    return getCPUGeneration(CucarachaTargetInfo::getCPUKind(Name)) == CG_V9;
-  }
-
-  void fillValidCPUList(SmallVectorImpl<StringRef> &Values) const override;
-
-  bool setCPU(const std::string &Name) override {
-    if (!CucarachaTargetInfo::setCPU(Name))
-      return false;
-    return getCPUGeneration(CPU) == CG_V9;
-  }
-
-  bool hasBitIntType() const override { return true; }
 };
 } // namespace targets
 } // namespace clang
-#endif // LLVM_CLANG_LIB_BASIC_TARGETS_CUCARACHA_H
+#endif // LLVM_CLANG_LIB_BASIC_TARGETS_Cucaracha_H

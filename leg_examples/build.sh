@@ -5,5 +5,5 @@ pushd leg_examples
     -mllvm -debug \
     main.cpp -S -o main.s \
     -I./ \
-    -ffreestanding -O3
+    -ffreestanding -O0 -g3
 popd

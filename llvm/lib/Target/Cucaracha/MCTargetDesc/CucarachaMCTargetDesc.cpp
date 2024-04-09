@@ -14,7 +14,6 @@
 #include "CucarachaMCTargetDesc.h"
 #include "CucarachaInstPrinter.h"
 #include "CucarachaMCAsmInfo.h"
-#include "CucarachaTargetStreamer.h"
 #include "TargetInfo/CucarachaTargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
@@ -37,21 +36,7 @@ using namespace llvm;
 static MCAsmInfo *createCucarachaMCAsmInfo(const MCRegisterInfo &MRI,
                                            const Triple &TT,
                                            const MCTargetOptions &Options) {
-  MCAsmInfo *MAI = new CucarachaELFMCAsmInfo(TT);
-  unsigned Reg = MRI.getDwarfRegNum(SP::O6, true);
-  MCCFIInstruction Inst = MCCFIInstruction::cfiDefCfa(nullptr, Reg, 0);
-  MAI->addInitialFrameState(Inst);
-  return MAI;
-}
-
-static MCAsmInfo *createCucarachaV9MCAsmInfo(const MCRegisterInfo &MRI,
-                                             const Triple &TT,
-                                             const MCTargetOptions &Options) {
-  MCAsmInfo *MAI = new CucarachaELFMCAsmInfo(TT);
-  unsigned Reg = MRI.getDwarfRegNum(SP::O6, true);
-  MCCFIInstruction Inst = MCCFIInstruction::cfiDefCfa(nullptr, Reg, 2047);
-  MAI->addInitialFrameState(Inst);
-  return MAI;
+  return new CucarachaMCAsmInfo(TT);
 }
 
 static MCInstrInfo *createCucarachaMCInstrInfo() {
@@ -62,24 +47,13 @@ static MCInstrInfo *createCucarachaMCInstrInfo() {
 
 static MCRegisterInfo *createCucarachaMCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
-  InitCucarachaMCRegisterInfo(X, SP::O7);
+  InitCucarachaMCRegisterInfo(X, Cucaracha::LR);
   return X;
 }
 
-static MCTargetStreamer *
-createObjectTargetStreamer(MCStreamer &S, const MCSubtargetInfo &STI) {
-  return new CucarachaTargetELFStreamer(S);
-}
-
-static MCTargetStreamer *createTargetAsmStreamer(MCStreamer &S,
-                                                 formatted_raw_ostream &OS,
-                                                 MCInstPrinter *InstPrint,
-                                                 bool isVerboseAsm) {
-  return new CucarachaTargetAsmStreamer(S, OS);
-}
-
-static MCTargetStreamer *createNullTargetStreamer(MCStreamer &S) {
-  return new CucarachaTargetStreamer(S);
+static MCSubtargetInfo *
+createCucarachaMCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS) {
+  return createCucarachaMCSubtargetInfoImpl(TT, CPU, /*TuneCPU*/ CPU, FS);
 }
 
 static MCInstPrinter *createCucarachaMCInstPrinter(const Triple &T,
@@ -94,30 +68,27 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfoFn X(getTheCucarachaTarget(), createCucarachaMCAsmInfo);
 
-  for (Target *T : {&getTheCucarachaTarget()}) {
-    // Register the MC instruction info.
-    TargetRegistry::RegisterMCInstrInfo(*T, createCucarachaMCInstrInfo);
+  // Register the MC instruction info.
+  TargetRegistry::RegisterMCInstrInfo(getTheCucarachaTarget(),
+                                      createCucarachaMCInstrInfo);
 
-    // Register the MC register info.
-    TargetRegistry::RegisterMCRegInfo(*T, createCucarachaMCRegisterInfo);
+  // Register the MC register info.
+  TargetRegistry::RegisterMCRegInfo(getTheCucarachaTarget(),
+                                    createCucarachaMCRegisterInfo);
 
-    // Register the MC Code Emitter.
-    TargetRegistry::RegisterMCCodeEmitter(*T, createCucarachaMCCodeEmitter);
+  // Register the MC subtarget info.
+  TargetRegistry::RegisterMCSubtargetInfo(getTheCucarachaTarget(),
+                                          createCucarachaMCSubtargetInfo);
 
-    // Register the asm backend.
-    TargetRegistry::RegisterMCAsmBackend(*T, createCucarachaAsmBackend);
+  // Register the MC Code Emitter.
+  TargetRegistry::RegisterMCCodeEmitter(getTheCucarachaTarget(),
+                                        createCucarachaMCCodeEmitter);
 
-    // Register the object target streamer.
-    TargetRegistry::RegisterObjectTargetStreamer(*T,
-                                                 createObjectTargetStreamer);
+  // Register the asm backend.
+  TargetRegistry::RegisterMCAsmBackend(getTheCucarachaTarget(),
+                                       createCucarachaAsmBackend);
 
-    // Register the asm streamer.
-    TargetRegistry::RegisterAsmTargetStreamer(*T, createTargetAsmStreamer);
-
-    // Register the null streamer.
-    TargetRegistry::RegisterNullTargetStreamer(*T, createNullTargetStreamer);
-
-    // Register the MCInstPrinter
-    TargetRegistry::RegisterMCInstPrinter(*T, createCucarachaMCInstPrinter);
-  }
+  // Register the MCInstPrinter
+  TargetRegistry::RegisterMCInstPrinter(getTheCucarachaTarget(),
+                                        createCucarachaMCInstPrinter);
 }

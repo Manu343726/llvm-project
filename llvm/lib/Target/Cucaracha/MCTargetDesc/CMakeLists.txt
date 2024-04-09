@@ -1,19 +1,8 @@
-add_llvm_component_library(LLVMCucarachaDesc
+add_llvm_library(LLVMCucarachaDesc
+  CucarachaMCTargetDesc.cpp
+  CucarachaMCAsmInfo.cpp
+  CucarachaMCCodeEmitter.cpp
   CucarachaAsmBackend.cpp
   CucarachaELFObjectWriter.cpp
   CucarachaInstPrinter.cpp
-  CucarachaMCAsmInfo.cpp
-  CucarachaMCCodeEmitter.cpp
-  CucarachaMCTargetDesc.cpp
-  CucarachaMCExpr.cpp
-  CucarachaTargetStreamer.cpp
-
-  LINK_COMPONENTS
-  MC
-  CucarachaInfo
-  Support
-  TargetParser
-
-  ADD_TO_COMPONENT
-  Cucaracha
   )

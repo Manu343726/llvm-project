@@ -10,7 +10,6 @@
 #define LLVM_MC_MCEXPR_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/Support/SMLoc.h"
 #include <cstdint>
 
@@ -362,7 +361,10 @@ public:
     VK_DTPREL,
 
     VK_LEG_HI,
-    VK_LEG_LO
+    VK_LEG_LO,
+
+    VK_CUCARACHA_HI,
+    VK_CUCARACHA_LO
   };
 
 private:

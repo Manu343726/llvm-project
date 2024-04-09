@@ -1,4 +1,4 @@
-//===-- CucarachaTargetInfo.h - Cucaracha Target Implementation ---------*- C++
+//===-- CucarachaTargetInfo.h - Sparc Target Implementation ---------*- C++
 //-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

@@ -1,250 +1,172 @@
 //===-- CucarachaRegisterInfo.cpp - Cucaracha Register Information
 //----------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the Cucaracha implementation of the TargetRegisterInfo
-// class.
+// This file contains the Cucaracha implementation of the MRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
 #include "CucarachaRegisterInfo.h"
 #include "Cucaracha.h"
+#include "CucarachaFrameLowering.h"
+#include "CucarachaInstrInfo.h"
 #include "CucarachaMachineFunctionInfo.h"
-#include "CucarachaSubtarget.h"
+#include "MCTargetDesc/CucarachaMCTargetDesc.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/CodeGen/MachineOperand.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/RegisterScavenging.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-
-using namespace llvm;
+#include "llvm/Support/MathExtras.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #define GET_REGINFO_TARGET_DESC
 #include "CucarachaGenRegisterInfo.inc"
 
-static cl::opt<bool>
-    ReserveAppRegisters("cucaracha-reserve-app-registers", cl::Hidden,
-                        cl::init(false),
-                        cl::desc("Reserve application registers (%g2-%g4)"));
+using namespace llvm;
 
 CucarachaRegisterInfo::CucarachaRegisterInfo()
-    : CucarachaGenRegisterInfo(SP::O7) {}
+    : CucarachaGenRegisterInfo(Cucaracha::LR) {}
 
-const MCPhysReg *
+const uint16_t *
 CucarachaRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  return CSR_SaveList;
-}
-
-const uint32_t *
-CucarachaRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
-                                            CallingConv::ID CC) const {
-  return CSR_RegMask;
-}
-
-const uint32_t *
-CucarachaRegisterInfo::getRTCallPreservedMask(CallingConv::ID CC) const {
-  return RTCSR_RegMask;
+  static const uint16_t CalleeSavedRegs[] = {Cucaracha::R4,
+                                             Cucaracha::R5,
+                                             Cucaracha::R6,
+                                             Cucaracha::R7,
+                                             Cucaracha::R8,
+                                             Cucaracha::R9,
+                                             0};
+  return CalleeSavedRegs;
 }
 
 BitVector
 CucarachaRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
-  const CucarachaSubtarget &Subtarget = MF.getSubtarget<CucarachaSubtarget>();
-  // FIXME: G1 reserved for now for large imm generation by frame code.
-  Reserved.set(SP::G1);
 
-  // G1-G4 can be used in applications.
-  if (ReserveAppRegisters) {
-    Reserved.set(SP::G2);
-    Reserved.set(SP::G3);
-    Reserved.set(SP::G4);
-  }
-  // G5 is not reserved in 64 bit mode.
-  if (!Subtarget.is64Bit())
-    Reserved.set(SP::G5);
-
-  Reserved.set(SP::O6);
-  Reserved.set(SP::I6);
-  Reserved.set(SP::I7);
-  Reserved.set(SP::G0);
-  Reserved.set(SP::G6);
-  Reserved.set(SP::G7);
-
-  // Also reserve the register pair aliases covering the above
-  // registers, with the same conditions.
-  Reserved.set(SP::G0_G1);
-  if (ReserveAppRegisters)
-    Reserved.set(SP::G2_G3);
-  if (ReserveAppRegisters || !Subtarget.is64Bit())
-    Reserved.set(SP::G4_G5);
-
-  Reserved.set(SP::O6_O7);
-  Reserved.set(SP::I6_I7);
-  Reserved.set(SP::G6_G7);
-
-  // Unaliased double registers are not available in non-V9 targets.
-  if (!Subtarget.isV9()) {
-    for (unsigned n = 0; n != 16; ++n) {
-      for (MCRegAliasIterator AI(SP::D16 + n, this, true); AI.isValid(); ++AI)
-        Reserved.set(*AI);
-    }
-  }
-
-  // Reserve ASR1-ASR31
-  for (unsigned n = 0; n < 31; n++)
-    Reserved.set(SP::ASR1 + n);
-
+  Reserved.set(Cucaracha::SP);
+  Reserved.set(Cucaracha::LR);
   return Reserved;
 }
 
-const TargetRegisterClass *
-CucarachaRegisterInfo::getPointerRegClass(const MachineFunction &MF,
-                                          unsigned Kind) const {
-  const CucarachaSubtarget &Subtarget = MF.getSubtarget<CucarachaSubtarget>();
-  return Subtarget.is64Bit() ? &SP::I64RegsRegClass : &SP::IntRegsRegClass;
+const uint32_t *
+CucarachaRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
+                                            CallingConv::ID) const {
+  return CC_Save_RegMask;
 }
 
-static void replaceFI(MachineFunction &MF, MachineBasicBlock::iterator II,
-                      MachineInstr &MI, const DebugLoc &dl,
-                      unsigned FIOperandNum, int Offset, unsigned FramePtr) {
-  // Replace frame index with a frame pointer reference.
-  if (Offset >= -4096 && Offset <= 4095) {
-    // If the offset is small enough to fit in the immediate field, directly
-    // encode it.
-    MI.getOperand(FIOperandNum).ChangeToRegister(FramePtr, false);
-    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
-    return;
-  }
-
-  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
-
-  // FIXME: it would be better to scavenge a register here instead of
-  // reserving G1 all of the time.
-  if (Offset >= 0) {
-    // Emit nonnegaive immediates with sethi + or.
-    // sethi %hi(Offset), %g1
-    // add %g1, %fp, %g1
-    // Insert G1+%lo(offset) into the user.
-    BuildMI(*MI.getParent(), II, dl, TII.get(SP::SETHIi), SP::G1)
-        .addImm(HI22(Offset));
-
-    // Emit G1 = G1 + I6
-    BuildMI(*MI.getParent(), II, dl, TII.get(SP::ADDrr), SP::G1)
-        .addReg(SP::G1)
-        .addReg(FramePtr);
-    // Insert: G1+%lo(offset) into the user.
-    MI.getOperand(FIOperandNum).ChangeToRegister(SP::G1, false);
-    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(LO10(Offset));
-    return;
-  }
-
-  // Emit Negative numbers with sethi + xor
-  // sethi %hix(Offset), %g1
-  // xor  %g1, %lox(offset), %g1
-  // add %g1, %fp, %g1
-  // Insert: G1 + 0 into the user.
-  BuildMI(*MI.getParent(), II, dl, TII.get(SP::SETHIi), SP::G1)
-      .addImm(HIX22(Offset));
-  BuildMI(*MI.getParent(), II, dl, TII.get(SP::XORri), SP::G1)
-      .addReg(SP::G1)
-      .addImm(LOX10(Offset));
-
-  BuildMI(*MI.getParent(), II, dl, TII.get(SP::ADDrr), SP::G1)
-      .addReg(SP::G1)
-      .addReg(FramePtr);
-  // Insert: G1+%lo(offset) into the user.
-  MI.getOperand(FIOperandNum).ChangeToRegister(SP::G1, false);
-  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(0);
+bool CucarachaRegisterInfo::requiresRegisterScavenging(
+    const MachineFunction &MF) const {
+  return true;
 }
+bool CucarachaRegisterInfo::requiresFrameIndexScavenging(
+    const MachineFunction &MF) const {
+  return true;
+}
+
+bool CucarachaRegisterInfo::trackLivenessAfterRegAlloc(
+    const MachineFunction &MF) const {
+  return true;
+}
+
+bool CucarachaRegisterInfo::useFPForScavengingIndex(
+    const MachineFunction &MF) const {
+  return false;
+}
+
+namespace {
+
+bool eliminateLoadStoreFrameIndex(MachineInstr &MI, const MachineFrameInfo &MFI,
+                                  MachineOperand &FIOp, unsigned FIOperandNum,
+                                  unsigned FI) {
+  unsigned ImmOpIdx = FIOperandNum + 1;
+  auto &ImmOp = MI.getOperand(ImmOpIdx);
+
+  // FIXME: check the size of offset.
+  int Offset = MFI.getObjectOffset(FI) + MFI.getStackSize() + ImmOp.getImm();
+  FIOp.ChangeToRegister(Cucaracha::SP, false);
+  ImmOp.setImm(Offset);
+
+  return true;
+}
+
+bool eliminateMoveFrameIndex(MachineBasicBlock &MBB, MachineFunction &MF,
+                             MachineInstr &MI, MachineBasicBlock::iterator II,
+                             MachineOperand &FIOp, const TargetInstrInfo &TII,
+                             const MachineFrameInfo &MFI, unsigned FI) {
+  // FIXME: check the size of offset.
+  int Offset = MFI.getObjectOffset(FI) + MFI.getStackSize();
+
+  assert(MI.getNumOperands() == 2 && "Expected two operands, the destination "
+                                     "register and the FrameIndex immediate");
+  const auto &DestReg = MI.getOperand(0);
+  assert(DestReg.isReg() &&
+         "Wrong operand, this not seems to be the destination register");
+
+  DebugLoc DL;
+
+  // Move offset into destination register so we can do DestReg = SP +
+  // FrameIndex offset later (Remember we don't have Add reg immediate
+  // instructions, only add reg reg)
+  FIOp.ChangeToImmediate(Offset);
+
+  // Now perform do the DestReg = SP + FrameIndex Offset
+  BuildMI(MF, DL, TII.get(Cucaracha::ADDrr), DestReg.getReg())
+      .addReg(Cucaracha::SP)
+      .addReg(DestReg.getReg());
+
+  return true;
+}
+} // namespace
 
 bool CucarachaRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                                 int SPAdj,
                                                 unsigned FIOperandNum,
                                                 RegScavenger *RS) const {
-  assert(SPAdj == 0 && "Unexpected");
-
   MachineInstr &MI = *II;
-  DebugLoc dl = MI.getDebugLoc();
-  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
-  MachineFunction &MF = *MI.getParent()->getParent();
-  const CucarachaSubtarget &Subtarget = MF.getSubtarget<CucarachaSubtarget>();
-  const CucarachaFrameLowering *TFI = getFrameLowering(MF);
+  auto &MBB = *II->getParent();
+  MachineFunction &MF = *MBB.getParent();
+  auto &TII = *MF.getSubtarget().getInstrInfo();
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineOperand &FIOp = MI.getOperand(FIOperandNum);
+  unsigned FI = FIOp.getIndex();
 
-  Register FrameReg;
-  int Offset;
-  Offset = TFI->getFrameIndexReference(MF, FrameIndex, FrameReg).getFixed();
-
-  Offset += MI.getOperand(FIOperandNum + 1).getImm();
-
-  if (!Subtarget.isV9() || !Subtarget.hasHardQuad()) {
-    if (MI.getOpcode() == SP::STQFri) {
-      const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
-      Register SrcReg = MI.getOperand(2).getReg();
-      Register SrcEvenReg = getSubReg(SrcReg, SP::sub_even64);
-      Register SrcOddReg = getSubReg(SrcReg, SP::sub_odd64);
-      MachineInstr *StMI = BuildMI(*MI.getParent(), II, dl, TII.get(SP::STDFri))
-                               .addReg(FrameReg)
-                               .addImm(0)
-                               .addReg(SrcEvenReg);
-      replaceFI(MF, *StMI, *StMI, dl, 0, Offset, FrameReg);
-      MI.setDesc(TII.get(SP::STDFri));
-      MI.getOperand(2).setReg(SrcOddReg);
-      Offset += 8;
-    } else if (MI.getOpcode() == SP::LDQFri) {
-      const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
-      Register DestReg = MI.getOperand(0).getReg();
-      Register DestEvenReg = getSubReg(DestReg, SP::sub_even64);
-      Register DestOddReg = getSubReg(DestReg, SP::sub_odd64);
-      MachineInstr *LdMI =
-          BuildMI(*MI.getParent(), II, dl, TII.get(SP::LDDFri), DestEvenReg)
-              .addReg(FrameReg)
-              .addImm(0);
-      replaceFI(MF, *LdMI, *LdMI, dl, 1, Offset, FrameReg);
-
-      MI.setDesc(TII.get(SP::LDDFri));
-      MI.getOperand(0).setReg(DestOddReg);
-      Offset += 8;
-    }
+  // Determine if we can eliminate the index from this kind of instruction.
+  switch (MI.getOpcode()) {
+  default:
+    // Not supported yet.
+    return false;
+  case Cucaracha::LDR:
+  case Cucaracha::STR:
+    return eliminateLoadStoreFrameIndex(MI, MFI, FIOp, FIOperandNum, FI);
+  case Cucaracha::MOVi32:
+    return eliminateMoveFrameIndex(MBB, MF, MI, II, FIOp, TII, MFI, FI);
   }
-
-  replaceFI(MF, II, MI, dl, FIOperandNum, Offset, FrameReg);
-  // replaceFI never removes II
-  return false;
 }
 
 Register
 CucarachaRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return SP::I6;
-}
-
-// Cucaracha has no architectural need for stack realignment support,
-// except that LLVM unfortunately currently implements overaligned
-// stack objects by depending upon stack realignment support.
-// If that ever changes, this can probably be deleted.
-bool CucarachaRegisterInfo::canRealignStack(const MachineFunction &MF) const {
-  if (!TargetRegisterInfo::canRealignStack(MF))
-    return false;
-
-  // Cucaracha always has a fixed frame pointer register, so don't need to
-  // worry about needing to reserve it. [even if we don't have a frame
-  // pointer for our frame, it still cannot be used for other things,
-  // or register window traps will be SADNESS.]
-
-  // If there's a reserved call frame, we can use SP to access locals.
-  if (getFrameLowering(MF)->hasReservedCallFrame(MF))
-    return true;
-
-  // Otherwise, we'd need a base pointer, but those aren't implemented
-  // for Cucaracha at the moment.
-
-  return false;
+  return Cucaracha::SP;
 }

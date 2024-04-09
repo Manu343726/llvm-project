@@ -1,58 +1,41 @@
 //===-- CucarachaRegisterInfo.td - Cucaracha Register defs ---------*- tablegen -*-===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-//  Declarations that describe the Cucaracha register file
+//  Declarations that describe the Cucaracha register file 
 //===----------------------------------------------------------------------===//
 
-class CucarachaReg<string Name> : Register<Name> {
-  let Namespace = "CUC";
-  field bits<4> Number;
+class CucarachaReg<bits<16> Enc, string n> : Register<n> {
+  let HWEncoding = Enc;
+  let Namespace = "Cucaracha";
 }
 
-// Word (32 bit signed integer) word registers
-class Wr<bits<4> Number, string Name> : CucarachaReg<Name> {
-  let Number = Number;
-}
+// CPU registers
+def R0  : CucarachaReg< 0, "r0">;
+def R1  : CucarachaReg< 1, "r1">;
+def R2  : CucarachaReg< 2, "r2">;
+def R3  : CucarachaReg< 3, "r3">;
+def R4  : CucarachaReg< 4, "r4">;
+def R5  : CucarachaReg< 5, "r5">;
+def R6  : CucarachaReg< 6, "r6">;
+def R7  : CucarachaReg< 7, "r7">;
+def R8  : CucarachaReg< 8, "r8">;
+def R9  : CucarachaReg< 9, "r9">;
 
-// Control registers (really word registers, but named separately as in if in a isolated bank)
-class Cr<bits<4> Number, string Name> : Wr<Number, Name>;
+def SP  : CucarachaReg<13, "sp">;
+def LR  : CucarachaReg<14, "lr">;
 
-// 32 bit float registers
-class Fr<bits<4> Number, string Name> : CucarachaReg<Name> {
-  let Number = Number;
-}
+def CPSR  : CucarachaReg<16, "cpsr">;
 
-// Control Registers
-
-def pc : Cr<0, "pc">;
-def sp : Cr<1, "sp">;
-def fp : Cr<2, "fp">;
-
-def CR : RegisterClass<"CUC", [i32], 32, (add
-  pc, sp, fp
-)>;
-
-// Word registers
-foreach i = 0-7 in
-  def w#i : Wr<i, "w"#i>;
-
-def WR : RegisterClass<"CUC", [f32], 32, (add
-  (sequence "w%u", 0, 7)
-)>;
-
-// Any word compatible registers (w registers and control registers)
-def AWR : RegisterClass<"CUC", [i32], 32, (add CR, WR)>;
-
-// Floating-point registers
-foreach i = 0-7 in
-  def f#i : Fr<i, "f"#i>;
-
-def FR : RegisterClass<"CUC", [f32], 32, (add
-  (sequence "f%u", 0, 7)
-)>;
+// Register classes.
+//
+def GRRegs : RegisterClass<"Cucaracha", [i32], 32,
+  // Return values and arguments
+  (add R0, R1, R2, R3,
+       R4, R5, R6, R7, R8, R9, SP)>;

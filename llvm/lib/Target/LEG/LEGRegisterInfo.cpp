@@ -86,6 +86,8 @@ bool LEGRegisterInfo::useFPForScavengingIndex(const MachineFunction &MF) const {
   return false;
 }
 
+namespace {
+
 bool eliminateLoadStoreFrameIndex(MachineInstr &MI, const MachineFrameInfo &MFI,
                                   MachineOperand &FIOp, unsigned FIOperandNum,
                                   unsigned FI) {
@@ -127,6 +129,7 @@ bool eliminateMoveFrameIndex(MachineBasicBlock &MBB, MachineFunction &MF,
 
   return true;
 }
+} // namespace
 
 bool LEGRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                           int SPAdj, unsigned FIOperandNum,

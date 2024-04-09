@@ -1,29 +1,32 @@
-//===-- CucarachaFrameLowering.h - Define frame lowering for Cucaracha --*- C++
+//===-- CucarachaFrameLowering.h - Frame info for Cucaracha Target ------*- C++
 //-*-===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
-//
+// This file contains Cucaracha frame information that doesn't fit anywhere else
+// cleanly...
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_Cucaracha_CucarachaFRAMELOWERING_H
-#define LLVM_LIB_TARGET_Cucaracha_CucarachaFRAMELOWERING_H
+#ifndef CucarachaFRAMEINFO_H
+#define CucarachaFRAMEINFO_H
 
-#include "Cucaracha.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/Support/TypeSize.h"
+#include "llvm/Support/Alignment.h"
 
 namespace llvm {
-
 class CucarachaSubtarget;
+
 class CucarachaFrameLowering : public TargetFrameLowering {
 public:
-  explicit CucarachaFrameLowering(const CucarachaSubtarget &ST);
+  CucarachaFrameLowering();
+
+  static llvm::Align stackAlign();
 
   /// emitProlog/emitEpilog - These methods insert prolog and epilog code into
   /// the function.
@@ -34,32 +37,14 @@ public:
   eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator I) const override;
 
-  bool hasReservedCallFrame(const MachineFunction &MF) const override;
   bool hasFP(const MachineFunction &MF) const override;
-  void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
-                            RegScavenger *RS = nullptr) const override;
 
-  StackOffset getFrameIndexReference(const MachineFunction &MF, int FI,
-                                     Register &FrameReg) const override;
-
-  /// targetHandlesStackFrameRounding - Returns true if the target is
-  /// responsible for rounding up the stack frame (probably at emitPrologue
-  /// time).
-  bool targetHandlesStackFrameRounding() const override { return true; }
+  //! Stack slot size (4 bytes)
+  static int stackSlotSize() { return 4; }
 
 private:
-  // Remap input registers to output registers for leaf procedure.
-  void remapRegsForLeafProc(MachineFunction &MF) const;
-
-  // Returns true if MF is a leaf procedure.
-  bool isLeafProc(MachineFunction &MF) const;
-
-  // Emits code for adjusting SP in function prologue/epilogue.
-  void emitSPAdjustment(MachineFunction &MF, MachineBasicBlock &MBB,
-                        MachineBasicBlock::iterator MBBI, int NumBytes,
-                        unsigned ADDrr, unsigned ADDri) const;
+  uint64_t computeStackSize(MachineFunction &MF) const;
 };
-
 } // namespace llvm
 
-#endif
+#endif // CucarachaFRAMEINFO_H

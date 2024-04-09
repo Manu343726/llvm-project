@@ -1,61 +1,30 @@
-//===- CucarachaMCAsmInfo.cpp - Cucaracha asm properties
-//--------------------------===//
+//===-- CucarachaMCAsmInfo.cpp - Cucaracha asm properties
+//-------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
 //
-//===----------------------------------------------------------------------===//
-//
-// This file contains the declarations of the CucarachaMCAsmInfo properties.
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
 #include "CucarachaMCAsmInfo.h"
-#include "CucarachaMCExpr.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCTargetOptions.h"
-#include "llvm/TargetParser/Triple.h"
-
+#include "llvm/ADT/StringRef.h"
 using namespace llvm;
 
-void CucarachaELFMCAsmInfo::anchor() {}
+void CucarachaMCAsmInfo::anchor() {}
 
-CucarachaELFMCAsmInfo::CucarachaELFMCAsmInfo(const Triple &TheTriple) {
-  IsLittleEndian = true; //(TheTriple.getArch() == Triple::cucarachael);
-
-  Data16bitsDirective = "\t.half\t";
-  Data32bitsDirective = "\t.word\t";
-  // .xword is only supported by V9.
-  Data64bitsDirective = nullptr;
-  ZeroDirective = "\t.skip\t";
-  CommentString = "!";
+CucarachaMCAsmInfo::CucarachaMCAsmInfo(const Triple &TT) {
   SupportsDebugInformation = true;
+  Data16bitsDirective = "\t.short\t";
+  Data32bitsDirective = "\t.long\t";
+  Data64bitsDirective = 0;
+  ZeroDirective = "\t.space\t";
+  CommentString = "#";
 
-  ExceptionsType = ExceptionHandling::DwarfCFI;
+  AscizDirective = ".asciiz";
 
-  UsesELFSectionDirectiveForBSS = true;
-}
-
-const MCExpr *CucarachaELFMCAsmInfo::getExprForPersonalitySymbol(
-    const MCSymbol *Sym, unsigned Encoding, MCStreamer &Streamer) const {
-  if (Encoding & dwarf::DW_EH_PE_pcrel) {
-    MCContext &Ctx = Streamer.getContext();
-    return CucarachaMCExpr::create(CucarachaMCExpr::VK_CUCARACHA_R_DISP32,
-                                   MCSymbolRefExpr::create(Sym, Ctx), Ctx);
-  }
-
-  return MCAsmInfo::getExprForPersonalitySymbol(Sym, Encoding, Streamer);
-}
-
-const MCExpr *CucarachaELFMCAsmInfo::getExprForFDESymbol(
-    const MCSymbol *Sym, unsigned Encoding, MCStreamer &Streamer) const {
-  if (Encoding & dwarf::DW_EH_PE_pcrel) {
-    MCContext &Ctx = Streamer.getContext();
-    return CucarachaMCExpr::create(CucarachaMCExpr::VK_CUCARACHA_R_DISP32,
-                                   MCSymbolRefExpr::create(Sym, Ctx), Ctx);
-  }
-  return MCAsmInfo::getExprForFDESymbol(Sym, Encoding, Streamer);
+  HiddenVisibilityAttr = MCSA_Invalid;
+  HiddenDeclarationVisibilityAttr = MCSA_Invalid;
+  ProtectedVisibilityAttr = MCSA_Invalid;
 }

@@ -1,9 +1,11 @@
-//===- CucarachaMCAsmInfo.h - Cucaracha asm properties -----------------*- C++
+//===-- CucarachaMCAsmInfo.h - Cucaracha asm properties --------------------*-
+//C++
 //-*--===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -11,28 +13,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_Cucaracha_MCTARGETDESC_CucarachaMCASMINFO_H
-#define LLVM_LIB_TARGET_Cucaracha_MCTARGETDESC_CucarachaMCASMINFO_H
+#ifndef CucarachaTARGETASMINFO_H
+#define CucarachaTARGETASMINFO_H
 
 #include "llvm/MC/MCAsmInfoELF.h"
 
 namespace llvm {
-
+class StringRef;
+class Target;
 class Triple;
 
-class CucarachaELFMCAsmInfo : public MCAsmInfoELF {
-  void anchor() override;
+class CucarachaMCAsmInfo : public MCAsmInfoELF {
+  virtual void anchor() override;
 
 public:
-  explicit CucarachaELFMCAsmInfo(const Triple &TheTriple);
-
-  const MCExpr *
-  getExprForPersonalitySymbol(const MCSymbol *Sym, unsigned Encoding,
-                              MCStreamer &Streamer) const override;
-  const MCExpr *getExprForFDESymbol(const MCSymbol *Sym, unsigned Encoding,
-                                    MCStreamer &Streamer) const override;
+  explicit CucarachaMCAsmInfo(const Triple &TT);
 };
 
-} // end namespace llvm
+} // namespace llvm
 
-#endif // LLVM_LIB_TARGET_Cucaracha_MCTARGETDESC_CucarachaMCASMINFO_H
+#endif

@@ -20,6 +20,7 @@
 #include "Targets/AVR.h"
 #include "Targets/BPF.h"
 #include "Targets/CSKY.h"
+#include "Targets/Cucaracha.h"
 #include "Targets/DirectX.h"
 #include "Targets/Hexagon.h"
 #include "Targets/LEG.h"
@@ -764,6 +765,8 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
     }
   case llvm::Triple::leg:
     return std::make_unique<LEGTargetInfo>(Triple, Opts);
+  case llvm::Triple::cucaracha:
+    return std::make_unique<CucarachaTargetInfo>(Triple, Opts);
   }
 }
 } // namespace targets

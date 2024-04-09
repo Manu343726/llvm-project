@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) debug clang",
+            "name": "(gdb) debug clang cucaracha target assembly output -O3",
             "type": "cppdbg",
             "preLaunchTask": "CMake: build clang",
             "request": "launch",
@@ -10,7 +10,7 @@
             "args": [
                 "-mllvm",
                 "-debug",
-                "--target=leg",
+                "--target=cucaracha",
                 "-ffreestanding",
                 "-S",
                 "-O3",
@@ -18,6 +18,92 @@
                 "leg_examples/main.cpp",
                 "-o",
                 "leg_examples/main.s"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "$PATH:${command:cmake.buildDirectory}/bin"
+                }
+            ],
+            "MIMode": "gdb",
+        },
+        {
+            "name": "(gdb) debug clang cucaracha target assembly output -O0 -g3",
+            "type": "cppdbg",
+            "preLaunchTask": "CMake: build clang",
+            "request": "launch",
+            "program": "${command:cmake.buildDirectory}/bin/clang",
+            "args": [
+                "-mllvm",
+                "-debug",
+                "--target=cucaracha",
+                "-ffreestanding",
+                "-S",
+                "-O0",
+                "-g3",
+                "-Ileg_examples",
+                "leg_examples/main.cpp",
+                "-o",
+                "leg_examples/main.s"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "$PATH:${command:cmake.buildDirectory}/bin"
+                }
+            ],
+            "MIMode": "gdb",
+        },
+        {
+            "name": "(gdb) debug clang cucaracha target binary output -O3",
+            "type": "cppdbg",
+            "preLaunchTask": "CMake: build clang",
+            "request": "launch",
+            "program": "${command:cmake.buildDirectory}/bin/clang",
+            "args": [
+                "-mllvm",
+                "-debug",
+                "--target=cucaracha",
+                "-ffreestanding",
+                "-c",
+                "-O3",
+                "-Ileg_examples",
+                "leg_examples/main.cpp",
+                "-o",
+                "leg_examples/main.o"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "$PATH:${command:cmake.buildDirectory}/bin"
+                }
+            ],
+            "MIMode": "gdb",
+        },
+        {
+            "name": "(gdb) debug clang cucaracha target binary output -O0 -g3",
+            "type": "cppdbg",
+            "preLaunchTask": "CMake: build clang",
+            "request": "launch",
+            "program": "${command:cmake.buildDirectory}/bin/clang",
+            "args": [
+                "-mllvm",
+                "-debug",
+                "--target=cucaracha",
+                "-ffreestanding",
+                "-c",
+                "-O0",
+                "-g3",
+                "-Ileg_examples",
+                "leg_examples/main.cpp",
+                "-o",
+                "leg_examples/main.o"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

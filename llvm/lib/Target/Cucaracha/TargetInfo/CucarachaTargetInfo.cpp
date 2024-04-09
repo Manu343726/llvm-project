@@ -18,5 +18,5 @@ Target &llvm::getTheCucarachaTarget() {
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaTargetInfo() {
   RegisterTarget<Triple::cucaracha, /*HasJIT=*/false> X(
-      getTheCucarachaTarget(), "cucaracha", "Cucaracha", "Cucaracha");
+      getTheCucarachaTarget(), "Cucaracha", "Cucaracha", "Cucaracha");
 }

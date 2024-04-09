@@ -1,432 +1,88 @@
 //===-- CucarachaAsmPrinter.cpp - Cucaracha LLVM assembly writer
 //------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
 // This file contains a printer that converts from our internal representation
-// of machine-dependent LLVM code to GAS-format Cucaracha assembly language.
+// of machine-dependent LLVM code to the XAS-format Cucaracha assembly language.
 //
 //===----------------------------------------------------------------------===//
 
+#include "TargetInfo/CucarachaTargetInfo.h"
+#define DEBUG_TYPE "asm-printer"
 #include "Cucaracha.h"
 #include "CucarachaInstrInfo.h"
+#include "CucarachaMCInstLower.h"
+#include "CucarachaSubtarget.h"
 #include "CucarachaTargetMachine.h"
-#include "MCTargetDesc/CucarachaInstPrinter.h"
-#include "MCTargetDesc/CucarachaMCExpr.h"
-#include "MCTargetDesc/CucarachaTargetStreamer.h"
-#include "TargetInfo/CucarachaTargetInfo.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/CodeGen/AsmPrinter.h"
+#include "llvm/CodeGen/MachineConstantPool.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineModuleInfoImpls.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Mangler.h"
+#include "llvm/IR/Module.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
+#include <algorithm>
+#include <cctype>
 
 using namespace llvm;
 
-#define DEBUG_TYPE "asm-printer"
-
 namespace {
 class CucarachaAsmPrinter : public AsmPrinter {
-  CucarachaTargetStreamer &getTargetStreamer() {
-    return static_cast<CucarachaTargetStreamer &>(
-        *OutStreamer->getTargetStreamer());
-  }
+  CucarachaMCInstLower MCInstLowering;
 
 public:
   explicit CucarachaAsmPrinter(TargetMachine &TM,
                                std::unique_ptr<MCStreamer> Streamer)
-      : AsmPrinter(TM, std::move(Streamer)) {}
+      : AsmPrinter(TM, std::move(Streamer)), MCInstLowering(*this) {}
 
-  StringRef getPassName() const override {
+  virtual StringRef getPassName() const override {
     return "Cucaracha Assembly Printer";
   }
 
-  void printOperand(const MachineInstr *MI, int opNum, raw_ostream &OS);
-  void printMemOperand(const MachineInstr *MI, int opNum, raw_ostream &OS,
-                       const char *Modifier = nullptr);
-
-  void emitFunctionBodyStart() override;
+  void emitFunctionEntryLabel() override;
   void emitInstruction(const MachineInstr *MI) override;
-
-  static const char *getRegisterName(MCRegister Reg) {
-    return CucarachaInstPrinter::getRegisterName(Reg);
-  }
-
-  bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                       const char *ExtraCode, raw_ostream &O) override;
-  bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNo,
-                             const char *ExtraCode, raw_ostream &O) override;
-
-  void LowerGETPCXAndEmitMCInsts(const MachineInstr *MI,
-                                 const MCSubtargetInfo &STI);
+  void emitFunctionBodyStart() override;
 };
 } // end of anonymous namespace
 
-static MCOperand createCucarachaMCOperand(CucarachaMCExpr::VariantKind Kind,
-                                          MCSymbol *Sym,
-                                          MCContext &OutContext) {
-  const MCSymbolRefExpr *MCSym = MCSymbolRefExpr::create(Sym, OutContext);
-  const CucarachaMCExpr *expr =
-      CucarachaMCExpr::create(Kind, MCSym, OutContext);
-  return MCOperand::createExpr(expr);
-}
-static MCOperand createPCXCallOP(MCSymbol *Label, MCContext &OutContext) {
-  return createCucarachaMCOperand(CucarachaMCExpr::VK_CUCARACHA_WDISP30, Label,
-                                  OutContext);
+void CucarachaAsmPrinter::emitFunctionBodyStart() {
+  // MCInstLowering.Initialize(AsmPrinter::Ma, &MF->getContext());
 }
 
-static MCOperand createPCXRelExprOp(CucarachaMCExpr::VariantKind Kind,
-                                    MCSymbol *GOTLabel, MCSymbol *StartLabel,
-                                    MCSymbol *CurLabel, MCContext &OutContext) {
-  const MCSymbolRefExpr *GOT = MCSymbolRefExpr::create(GOTLabel, OutContext);
-  const MCSymbolRefExpr *Start =
-      MCSymbolRefExpr::create(StartLabel, OutContext);
-  const MCSymbolRefExpr *Cur = MCSymbolRefExpr::create(CurLabel, OutContext);
-
-  const MCBinaryExpr *Sub = MCBinaryExpr::createSub(Cur, Start, OutContext);
-  const MCBinaryExpr *Add = MCBinaryExpr::createAdd(GOT, Sub, OutContext);
-  const CucarachaMCExpr *expr = CucarachaMCExpr::create(Kind, Add, OutContext);
-  return MCOperand::createExpr(expr);
-}
-
-static void EmitCall(MCStreamer &OutStreamer, MCOperand &Callee,
-                     const MCSubtargetInfo &STI) {
-  MCInst CallInst;
-  CallInst.setOpcode(SP::CALL);
-  CallInst.addOperand(Callee);
-  OutStreamer.emitInstruction(CallInst, STI);
-}
-
-static void EmitSETHI(MCStreamer &OutStreamer, MCOperand &Imm, MCOperand &RD,
-                      const MCSubtargetInfo &STI) {
-  MCInst SETHIInst;
-  SETHIInst.setOpcode(SP::SETHIi);
-  SETHIInst.addOperand(RD);
-  SETHIInst.addOperand(Imm);
-  OutStreamer.emitInstruction(SETHIInst, STI);
-}
-
-static void EmitBinary(MCStreamer &OutStreamer, unsigned Opcode, MCOperand &RS1,
-                       MCOperand &Src2, MCOperand &RD,
-                       const MCSubtargetInfo &STI) {
-  MCInst Inst;
-  Inst.setOpcode(Opcode);
-  Inst.addOperand(RD);
-  Inst.addOperand(RS1);
-  Inst.addOperand(Src2);
-  OutStreamer.emitInstruction(Inst, STI);
-}
-
-static void EmitOR(MCStreamer &OutStreamer, MCOperand &RS1, MCOperand &Imm,
-                   MCOperand &RD, const MCSubtargetInfo &STI) {
-  EmitBinary(OutStreamer, SP::ORri, RS1, Imm, RD, STI);
-}
-
-static void EmitADD(MCStreamer &OutStreamer, MCOperand &RS1, MCOperand &RS2,
-                    MCOperand &RD, const MCSubtargetInfo &STI) {
-  EmitBinary(OutStreamer, SP::ADDrr, RS1, RS2, RD, STI);
-}
-
-static void EmitSHL(MCStreamer &OutStreamer, MCOperand &RS1, MCOperand &Imm,
-                    MCOperand &RD, const MCSubtargetInfo &STI) {
-  EmitBinary(OutStreamer, SP::SLLri, RS1, Imm, RD, STI);
-}
-
-static void EmitHiLo(MCStreamer &OutStreamer, MCSymbol *GOTSym,
-                     CucarachaMCExpr::VariantKind HiKind,
-                     CucarachaMCExpr::VariantKind LoKind, MCOperand &RD,
-                     MCContext &OutContext, const MCSubtargetInfo &STI) {
-
-  MCOperand hi = createCucarachaMCOperand(HiKind, GOTSym, OutContext);
-  MCOperand lo = createCucarachaMCOperand(LoKind, GOTSym, OutContext);
-  EmitSETHI(OutStreamer, hi, RD, STI);
-  EmitOR(OutStreamer, RD, lo, RD, STI);
-}
-
-void CucarachaAsmPrinter::LowerGETPCXAndEmitMCInsts(
-    const MachineInstr *MI, const MCSubtargetInfo &STI) {
-  MCSymbol *GOTLabel =
-      OutContext.getOrCreateSymbol(Twine("_GLOBAL_OFFSET_TABLE_"));
-
-  const MachineOperand &MO = MI->getOperand(0);
-  assert(MO.getReg() != SP::O7 && "%o7 is assigned as destination for getpcx!");
-
-  MCOperand MCRegOP = MCOperand::createReg(MO.getReg());
-
-  if (!isPositionIndependent()) {
-    // Just load the address of GOT to MCRegOP.
-    switch (TM.getCodeModel()) {
-    default:
-      llvm_unreachable("Unsupported absolute code model");
-    case CodeModel::Small:
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_HI,
-               CucarachaMCExpr::VK_CUCARACHA_LO, MCRegOP, OutContext, STI);
-      break;
-    case CodeModel::Medium: {
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_H44,
-               CucarachaMCExpr::VK_CUCARACHA_M44, MCRegOP, OutContext, STI);
-      MCOperand imm =
-          MCOperand::createExpr(MCConstantExpr::create(12, OutContext));
-      EmitSHL(*OutStreamer, MCRegOP, imm, MCRegOP, STI);
-      MCOperand lo = createCucarachaMCOperand(CucarachaMCExpr::VK_CUCARACHA_L44,
-                                              GOTLabel, OutContext);
-      EmitOR(*OutStreamer, MCRegOP, lo, MCRegOP, STI);
-      break;
-    }
-    case CodeModel::Large: {
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_HH,
-               CucarachaMCExpr::VK_CUCARACHA_HM, MCRegOP, OutContext, STI);
-      MCOperand imm =
-          MCOperand::createExpr(MCConstantExpr::create(32, OutContext));
-      EmitSHL(*OutStreamer, MCRegOP, imm, MCRegOP, STI);
-      // Use register %o7 to load the lower 32 bits.
-      MCOperand RegO7 = MCOperand::createReg(SP::O7);
-      EmitHiLo(*OutStreamer, GOTLabel, CucarachaMCExpr::VK_CUCARACHA_HI,
-               CucarachaMCExpr::VK_CUCARACHA_LO, RegO7, OutContext, STI);
-      EmitADD(*OutStreamer, MCRegOP, RegO7, MCRegOP, STI);
-    }
-    }
-    return;
-  }
-
-  MCSymbol *StartLabel = OutContext.createTempSymbol();
-  MCSymbol *EndLabel = OutContext.createTempSymbol();
-  MCSymbol *SethiLabel = OutContext.createTempSymbol();
-
-  MCOperand RegO7 = MCOperand::createReg(SP::O7);
-
-  // <StartLabel>:
-  //   call <EndLabel>
-  // <SethiLabel>:
-  //     sethi %hi(_GLOBAL_OFFSET_TABLE_+(<SethiLabel>-<StartLabel>)), <MO>
-  // <EndLabel>:
-  //   or  <MO>, %lo(_GLOBAL_OFFSET_TABLE_+(<EndLabel>-<StartLabel>))), <MO>
-  //   add <MO>, %o7, <MO>
-
-  OutStreamer->emitLabel(StartLabel);
-  MCOperand Callee = createPCXCallOP(EndLabel, OutContext);
-  EmitCall(*OutStreamer, Callee, STI);
-  OutStreamer->emitLabel(SethiLabel);
-  MCOperand hiImm =
-      createPCXRelExprOp(CucarachaMCExpr::VK_CUCARACHA_PC22, GOTLabel,
-                         StartLabel, SethiLabel, OutContext);
-  EmitSETHI(*OutStreamer, hiImm, MCRegOP, STI);
-  OutStreamer->emitLabel(EndLabel);
-  MCOperand loImm =
-      createPCXRelExprOp(CucarachaMCExpr::VK_CUCARACHA_PC10, GOTLabel,
-                         StartLabel, EndLabel, OutContext);
-  EmitOR(*OutStreamer, MCRegOP, loImm, MCRegOP, STI);
-  EmitADD(*OutStreamer, MCRegOP, RegO7, MCRegOP, STI);
+void CucarachaAsmPrinter::emitFunctionEntryLabel() {
+  OutStreamer->emitLabel(CurrentFnSym);
 }
 
 void CucarachaAsmPrinter::emitInstruction(const MachineInstr *MI) {
-  Cucaracha_MC::verifyInstructionPredicates(
-      MI->getOpcode(), getSubtargetInfo().getFeatureBits());
+  MCInst TmpInst;
+  MCInstLowering.Lower(MI, TmpInst);
 
-  switch (MI->getOpcode()) {
-  default:
-    break;
-  case TargetOpcode::DBG_VALUE:
-    // FIXME: Debug Value.
-    return;
-  case SP::GETPCX:
-    LowerGETPCXAndEmitMCInsts(MI, getSubtargetInfo());
-    return;
-  }
-  MachineBasicBlock::const_instr_iterator I = MI->getIterator();
-  MachineBasicBlock::const_instr_iterator E = MI->getParent()->instr_end();
-  do {
-    MCInst TmpInst;
-    LowerCucarachaMachineInstrToMCInst(&*I, TmpInst, *this);
-    EmitToStreamer(*OutStreamer, TmpInst);
-  } while ((++I != E) && I->isInsideBundle()); // Delay slot check.
-}
-
-void CucarachaAsmPrinter::emitFunctionBodyStart() {
-  if (!MF->getSubtarget<CucarachaSubtarget>().is64Bit())
-    return;
-
-  const MachineRegisterInfo &MRI = MF->getRegInfo();
-  const unsigned globalRegs[] = {SP::G2, SP::G3, SP::G6, SP::G7, 0};
-  for (unsigned i = 0; globalRegs[i] != 0; ++i) {
-    unsigned reg = globalRegs[i];
-    if (MRI.use_empty(reg))
-      continue;
-
-    if (reg == SP::G6 || reg == SP::G7)
-      getTargetStreamer().emitCucarachaRegisterIgnore(reg);
-    else
-      getTargetStreamer().emitCucarachaRegisterScratch(reg);
-  }
-}
-
-void CucarachaAsmPrinter::printOperand(const MachineInstr *MI, int opNum,
-                                       raw_ostream &O) {
-  const DataLayout &DL = getDataLayout();
-  const MachineOperand &MO = MI->getOperand(opNum);
-  CucarachaMCExpr::VariantKind TF =
-      (CucarachaMCExpr::VariantKind)MO.getTargetFlags();
-
-#ifndef NDEBUG
-  // Verify the target flags.
-  if (MO.isGlobal() || MO.isSymbol() || MO.isCPI()) {
-    if (MI->getOpcode() == SP::CALL)
-      assert(TF == CucarachaMCExpr::VK_CUCARACHA_None &&
-             "Cannot handle target flags on call address");
-    else if (MI->getOpcode() == SP::SETHIi || MI->getOpcode() == SP::SETHIXi)
-      assert((TF == CucarachaMCExpr::VK_CUCARACHA_HI ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_H44 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_HH ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_LM ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_HI22 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_HI22 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_HIX22 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_HI22 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LE_HIX22) &&
-             "Invalid target flags for address operand on sethi");
-    else if (MI->getOpcode() == SP::TLS_CALL)
-      assert((TF == CucarachaMCExpr::VK_CUCARACHA_None ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_CALL ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_CALL) &&
-             "Cannot handle target flags on tls call address");
-    else if (MI->getOpcode() == SP::TLS_ADDrr)
-      assert((TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_ADD ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_ADD ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_ADD ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_ADD) &&
-             "Cannot handle target flags on add for TLS");
-    else if (MI->getOpcode() == SP::TLS_LDrr)
-      assert(TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LD &&
-             "Cannot handle target flags on ld for TLS");
-    else if (MI->getOpcode() == SP::TLS_LDXrr)
-      assert(TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LDX &&
-             "Cannot handle target flags on ldx for TLS");
-    else if (MI->getOpcode() == SP::XORri || MI->getOpcode() == SP::XORXri)
-      assert((TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDO_LOX10 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LE_LOX10) &&
-             "Cannot handle target flags on xor for TLS");
-    else
-      assert((TF == CucarachaMCExpr::VK_CUCARACHA_LO ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_M44 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_L44 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_HM ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_GD_LO10 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_LDM_LO10 ||
-              TF == CucarachaMCExpr::VK_CUCARACHA_TLS_IE_LO10) &&
-             "Invalid target flags for small address operand");
-  }
-#endif
-
-  bool CloseParen = CucarachaMCExpr::printVariantKind(O, TF);
-
-  switch (MO.getType()) {
-  case MachineOperand::MO_Register:
-    O << "%" << StringRef(getRegisterName(MO.getReg())).lower();
-    break;
-
-  case MachineOperand::MO_Immediate:
-    O << MO.getImm();
-    break;
-  case MachineOperand::MO_MachineBasicBlock:
-    MO.getMBB()->getSymbol()->print(O, MAI);
-    return;
-  case MachineOperand::MO_GlobalAddress:
-    PrintSymbolOperand(MO, O);
-    break;
-  case MachineOperand::MO_BlockAddress:
-    O << GetBlockAddressSymbol(MO.getBlockAddress())->getName();
-    break;
-  case MachineOperand::MO_ExternalSymbol:
-    O << MO.getSymbolName();
-    break;
-  case MachineOperand::MO_ConstantPoolIndex:
-    O << DL.getPrivateGlobalPrefix() << "CPI" << getFunctionNumber() << "_"
-      << MO.getIndex();
-    break;
-  case MachineOperand::MO_Metadata:
-    MO.getMetadata()->printAsOperand(O, MMI->getModule());
-    break;
-  default:
-    llvm_unreachable("<unknown operand type>");
-  }
-  if (CloseParen)
-    O << ")";
-}
-
-void CucarachaAsmPrinter::printMemOperand(const MachineInstr *MI, int opNum,
-                                          raw_ostream &O,
-                                          const char *Modifier) {
-  printOperand(MI, opNum, O);
-
-  // If this is an ADD operand, emit it like normal operands.
-  if (Modifier && !strcmp(Modifier, "arith")) {
-    O << ", ";
-    printOperand(MI, opNum + 1, O);
-    return;
-  }
-
-  if (MI->getOperand(opNum + 1).isReg() &&
-      MI->getOperand(opNum + 1).getReg() == SP::G0)
-    return; // don't print "+%g0"
-  if (MI->getOperand(opNum + 1).isImm() &&
-      MI->getOperand(opNum + 1).getImm() == 0)
-    return; // don't print "+0"
-
-  O << "+";
-  printOperand(MI, opNum + 1, O);
-}
-
-/// PrintAsmOperand - Print out an operand for an inline asm expression.
-///
-bool CucarachaAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                                          const char *ExtraCode,
-                                          raw_ostream &O) {
-  if (ExtraCode && ExtraCode[0]) {
-    if (ExtraCode[1] != 0)
-      return true; // Unknown modifier.
-
-    switch (ExtraCode[0]) {
-    default:
-      // See if this is a generic print operand
-      return AsmPrinter::PrintAsmOperand(MI, OpNo, ExtraCode, O);
-    case 'f':
-    case 'r':
-      break;
-    }
-  }
-
-  printOperand(MI, OpNo, O);
-
-  return false;
-}
-
-bool CucarachaAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
-                                                unsigned OpNo,
-                                                const char *ExtraCode,
-                                                raw_ostream &O) {
-  if (ExtraCode && ExtraCode[0])
-    return true; // Unknown modifier
-
-  O << '[';
-  printMemOperand(MI, OpNo, O);
-  O << ']';
-
-  return false;
+  EmitToStreamer(*OutStreamer, TmpInst);
 }
 
 // Force static initialization.
-extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCucarachaAsmPrinter() {
+extern "C" void LLVMInitializeCucarachaAsmPrinter() {
   RegisterAsmPrinter<CucarachaAsmPrinter> X(getTheCucarachaTarget());
 }

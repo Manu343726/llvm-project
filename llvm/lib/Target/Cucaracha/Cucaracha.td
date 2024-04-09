@@ -1,11 +1,13 @@
-  //===-- Cucaracha.td - Describe the Cucaracha Target Machine -------*- tablegen -*-===//
+//===-- Cucaracha.td - Describe the Cucaracha Target Machine -------*- tablegen -*-===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
+// This is the top level entry point for the Cucaracha target.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,32 +18,28 @@
 include "llvm/Target/Target.td"
 
 //===----------------------------------------------------------------------===//
-// Register File, Calling Conv, Instruction Descriptions
+// Descriptions
 //===----------------------------------------------------------------------===//
 
 include "CucarachaRegisterInfo.td"
-include "CucarachaCallingConv.td"
-include "CucarachaSchedule.td"
 include "CucarachaInstrInfo.td"
+include "CucarachaCallingConv.td"
 
 def CucarachaInstrInfo : InstrInfo;
-
-def CucarachaAsmParser : AsmParser {
-  bit ShouldEmitMatchRegisterName = 0;
-}
 
 //===----------------------------------------------------------------------===//
 // Cucaracha processors supported.
 //===----------------------------------------------------------------------===//
 
 class Proc<string Name, list<SubtargetFeature> Features>
- : Processor<Name, NoItineraries, Features>;
+    : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"generic",         []>;
+def : Proc<"generic", []>;
 
 //===----------------------------------------------------------------------===//
 // Declare the target which we are implementing
 //===----------------------------------------------------------------------===//
+
 
 def CucarachaAsmWriter : AsmWriter {
   string AsmWriterClassName  = "InstPrinter";
@@ -50,9 +48,7 @@ def CucarachaAsmWriter : AsmWriter {
 }
 
 def Cucaracha : Target {
-  // Pull in Instruction Info:
   let InstructionSet = CucarachaInstrInfo;
-  let AssemblyParsers  = [CucarachaAsmParser];
   let AssemblyWriters = [CucarachaAsmWriter];
   let AllowRegisterRenaming = 1;
 }
