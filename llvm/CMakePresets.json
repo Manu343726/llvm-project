@@ -7,7 +7,7 @@
     },
     "configurePresets": [
         {
-            "name": "default",
+            "name": "base",
             "binaryDir": "${sourceDir}/../build",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
@@ -19,28 +19,35 @@
         },
         {
             "name": "MinGW",
-            "inherits": "default",
+            "inherits": "base",
             "binaryDir": "${sourceDir}/../build_mingw",
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
+            "cacheVariables": {
+                "LLVM_HOST_TRIPLE": "x86_64"
+            },
             "generator": "MinGW Makefiles"
         },
         {
             "name": "Visual Studio 2022",
-            "inherits": "default",
+            "inherits": "base",
+            "binaryDir": "${sourceDir}/../build_vs2022",
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
+            "cacheVariables": {
+                "LLVM_HOST_TRIPLE": "x86_64"
+            },
             "generator": "Visual Studio 17 2022"
         },
         {
             "name": "Linux GCC Docker",
-            "inherits": "default",
+            "inherits": "base",
             "binaryDir": "${sourceDir}/../build_docker_linux_gcc",
             "generator": "Unix Makefiles",
             "cacheVariables": {
@@ -54,7 +61,7 @@
         },
         {
             "name": "Linux GCC",
-            "inherits": "default",
+            "inherits": "base",
             "binaryDir": "${sourceDir}/../build_linux_gcc",
             "generator": "Unix Makefiles",
             "cacheVariables": {
@@ -71,7 +78,7 @@
         {
             "name": "MinGW",
             "configurePreset": "MinGW",
-            "jobs": 12
+            "jobs": 10
         },
         {
             "name": "MinGW verbose makefile",
@@ -81,12 +88,12 @@
         {
             "name": "Visual Studio 2022",
             "configurePreset": "Visual Studio 2022",
-            "jobs": 12
+            "jobs": 10
         },
         {
             "name": "Linux GCC",
             "configurePreset": "Linux GCC",
-            "jobs": 13
+            "jobs": 10
         }
     ]
 }
