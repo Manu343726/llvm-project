@@ -1,5 +1,11 @@
 add_llvm_component_group(Cucaracha)
 
+find_program(CUCARACHA cucaracha)
+
+if(CUCARACHA)
+  add_custom_command(OUTPUT Cucaracha.td COMMAND ${CUCARACHA} ARGS tools generate-llvm-tablegen -o "${CMAKE_CURRENT_SOURCE_DIR}/Cucaracha.td")
+endif()
+
 set(LLVM_TARGET_DEFINITIONS Cucaracha.td)
 
 tablegen(LLVM CucarachaGenRegisterInfo.inc -gen-register-info)

@@ -78,12 +78,13 @@
         {
             "name": "MinGW",
             "configurePreset": "MinGW",
-            "jobs": 10
+            "jobs": 6
         },
         {
             "name": "MinGW verbose makefile",
             "inherits": "MinGW",
-            "verbose": true
+            "verbose": true,
+            "jobs": 10
         },
         {
             "name": "Visual Studio 2022",
