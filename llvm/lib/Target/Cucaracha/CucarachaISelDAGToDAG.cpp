@@ -87,7 +87,7 @@ void CucarachaDAGToDAGISel::SelectMoveImmediate(SDNode *N) {
   // Make sure the immediate size is supported.
   ConstantSDNode *ConstVal = cast<ConstantSDNode>(N);
   uint64_t ImmVal = ConstVal->getZExtValue();
-  uint64_t SupportedMask = 0xfffffffff;
+  uint64_t SupportedMask = 0xffffffffULL;
   if ((ImmVal & SupportedMask) != ImmVal) {
     return SelectCode(N);
   }
@@ -97,16 +97,23 @@ void CucarachaDAGToDAGISel::SelectMoveImmediate(SDNode *N) {
   uint64_t HiMask = 0xffff0000;
   uint64_t ImmLo = (ImmVal & LoMask);
   uint64_t ImmHi = (ImmVal & HiMask);
+  
   SDValue ConstLo = CurDAG->getTargetConstant(ImmLo, N, MVT::i32);
-  SDNode *Move =
-      CurDAG->SelectNodeTo(N, Cucaracha::MOVLOi16, MVT::i32, ConstLo);
+  
+  // Always emit MOVIMM16L for the low part
+  SDNode *MovLo =
+      CurDAG->getMachineNode(Cucaracha::MOVIMM16L, N, MVT::i32, ConstLo);
 
-  // Select the low part of the immediate move, if needed.
+  // If high part is needed, emit MOVIMM16H; otherwise just use the MOVIMM16L result
   if (ImmHi) {
     SDValue ConstHi = CurDAG->getTargetConstant(ImmHi >> 16, N, MVT::i32);
-    CurDAG->SelectNodeTo(N, Cucaracha::MOVHIi16, MVT::i32, SDValue(Move, 0),
-                         ConstHi);
+    SDNode *MovHi = CurDAG->getMachineNode(Cucaracha::MOVIMM16H, N, MVT::i32,
+                                           ConstHi, SDValue(MovLo, 0));
+    CurDAG->ReplaceAllUsesWith(N, MovHi);
+  } else {
+    CurDAG->ReplaceAllUsesWith(N, MovLo);
   }
+  CurDAG->RemoveDeadNode(N);
 }
 
 void CucarachaDAGToDAGISel::SelectConditionalBranch(SDNode *N) {
@@ -128,16 +135,33 @@ void CucarachaDAGToDAGISel::SelectConditionalBranch(SDNode *N) {
   SDValue CCVal = CurDAG->getTargetConstant(CC->get(), N, MVT::i32);
   SDValue BranchOps[] = {CCVal, Target, SDValue(Compare, 0),
                          SDValue(Compare, 1)};
-  CurDAG->SelectNodeTo(N, Cucaracha::Bcc, MVT::Other, BranchOps);
+  CurDAG->SelectNodeTo(N, Cucaracha::CJMP, MVT::Other, BranchOps);
 }
 
 void CucarachaDAGToDAGISel::SelectFrameIndex(SDNode *N) {
+  // Frame indices represent stack locations. We need to compute SP + offset.
+  // The actual offset value will be resolved during eliminateFrameIndex,
+  // but we need to emit the proper instruction sequence here.
+  //
+  // We emit: MOVi32 frameindex -> temp, ADD SP, temp -> result
+  // The MOVi32 will be lowered to MOVIMM16L/H which will have the frame index
+  // as operand. During eliminateFrameIndex, this will be patched to compute
+  // the correct SP-relative address.
   FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>(N);
   EVT PtrVT = getTargetLowering()->getPointerTy(CurDAG->getDataLayout());
-  const auto Address = CurDAG->getTargetFrameIndex(FIN->getIndex(), PtrVT);
+  const auto FrameIdx = CurDAG->getTargetFrameIndex(FIN->getIndex(), PtrVT);
+
+  // Load the frame offset into a register
   auto *const Mov =
-      CurDAG->getMachineNode(Cucaracha::MOVi32, N, MVT::i32, Address);
-  CurDAG->ReplaceAllUsesWith(N, Mov);
+      CurDAG->getMachineNode(Cucaracha::MOVi32, N, MVT::i32, FrameIdx);
+
+  // Add SP to get the actual stack address
+  SDValue SPReg = CurDAG->getRegister(Cucaracha::SP, PtrVT);
+  SDValue MovResult = SDValue(Mov, 0);
+  auto *const Add =
+      CurDAG->getMachineNode(Cucaracha::ADD, N, MVT::i32, SPReg, MovResult);
+
+  CurDAG->ReplaceAllUsesWith(N, Add);
 }
 
 void CucarachaDAGToDAGISel::Select(SDNode *N) {
@@ -149,8 +173,9 @@ void CucarachaDAGToDAGISel::Select(SDNode *N) {
   switch (N->getOpcode()) {
   case ISD::Constant:
     return SelectMoveImmediate(N);
-  case ISD::BR_CC:
-    return SelectConditionalBranch(N);
+  // Disable custom BR_CC handling - let the lowering and TableGen patterns handle it
+  // case ISD::BR_CC:
+  //   return SelectConditionalBranch(N);
   case ISD::FrameIndex:
     return SelectFrameIndex(N);
   }

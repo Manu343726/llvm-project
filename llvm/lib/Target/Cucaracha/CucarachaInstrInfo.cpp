@@ -97,25 +97,18 @@ bool CucarachaInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
                                        MachineBasicBlock *&FBB,
                                        SmallVectorImpl<MachineOperand> &Cond,
                                        bool AllowModify) const {
-  bool HasCondBranch = false;
-  TBB = nullptr;
-  FBB = nullptr;
-  for (MachineInstr &MI : MBB) {
-    if (MI.getOpcode() == Cucaracha::B) {
-      MachineBasicBlock *TargetBB = MI.getOperand(0).getMBB();
-      if (HasCondBranch) {
-        FBB = TargetBB;
-      } else {
-        TBB = TargetBB;
-      }
-    } else if (MI.getOpcode() == Cucaracha::Bcc) {
-      MachineBasicBlock *TargetBB = MI.getOperand(1).getMBB();
-      TBB = TargetBB;
-      Cond.push_back(MI.getOperand(0));
-      HasCondBranch = true;
-    }
-  }
-  return false;
+  // Cucaracha uses register-indirect branches (JMP reg, CJMP reg)
+  // After pseudo-expansion, the branches contain register operands, not MBB operands
+  // We cannot easily analyze these branches since the target is computed at runtime
+  // Return true to indicate we cannot analyze the branch
+  //
+  // This disables some branch optimizations, but is necessary for correctness
+  // with our indirect branch model.
+  //
+  // For simple cases (unconditional JMP with known target), we could potentially
+  // analyze by looking at the MOVIMM16L/H sequence that loads the address.
+  // For now, just return failure to keep things simple.
+  return true;
 }
 
 /// RemoveBranch - Remove the branching code at the end of the specific MBB.
@@ -130,7 +123,7 @@ unsigned CucarachaInstrInfo::removeBranch(MachineBasicBlock &MBB,
   do {
     --I;
     unsigned Opc = I->getOpcode();
-    if ((Opc == Cucaracha::B) || (Opc == Cucaracha::Bcc)) {
+    if ((Opc == Cucaracha::JMP) || (Opc == Cucaracha::CJMP)) {
       auto ToDelete = I;
       ++I;
       MBB.erase(ToDelete);
@@ -155,28 +148,95 @@ unsigned CucarachaInstrInfo::insertBranch(
     ArrayRef<MachineOperand> Cond, const DebugLoc &DL, int *BytesAdded) const {
   unsigned NumInserted = 0;
 
+  // DEBUG: Print branch insertion info
+#if (LLVM_ENABLE_DUMP)
+  LLVM_DEBUG(dbgs() << "insertBranch: MBB=" << MBB.getName()
+                    << " TBB=" << (TBB ? TBB->getName() : "null")
+                    << " FBB=" << (FBB ? FBB->getName() : "null")
+                    << " Cond.size=" << Cond.size() << "\n");
+#endif
+
   // Insert any conditional branch.
+  // Cucaracha CJMP uses register operands, so we need to generate:
+  // 1. Load mask into R4
+  // 2. Load target address into R5  
+  // 3. CJMP R4, R5, R6 (link output in R6)
   if (Cond.size() > 0) {
-    auto MIB = BuildMI(MBB, MBB.end(), DL, get(Cucaracha::Bcc));
-    MIB->addOperand(Cond[0]);
-    MIB.addMBB(TBB);
+    // Cond[0] contains the condition mask (from analyzeBranch)
+    if (Cond[0].isImm()) {
+      unsigned Mask = Cond[0].getImm();
+      BuildMI(MBB, MBB.end(), DL, get(Cucaracha::MOVIMM16L), Cucaracha::R4)
+          .addImm(Mask & 0xffff);
+      if ((Mask >> 16) != 0) {
+        BuildMI(MBB, MBB.end(), DL, get(Cucaracha::MOVIMM16H))
+            .addReg(Cucaracha::R4, RegState::Define)
+            .addImm((Mask >> 16) & 0xffff)
+            .addReg(Cucaracha::R4);
+      }
+    } else if (Cond[0].isReg()) {
+      // If condition is already in a register, copy it
+      BuildMI(MBB, MBB.end(), DL, get(Cucaracha::MOV), Cucaracha::R4)
+          .addReg(Cond[0].getReg());
+    }
+
+    // Load target address
+    BuildMI(MBB, MBB.end(), DL, get(Cucaracha::MOVIMM16L), Cucaracha::R5)
+        .addMBB(TBB, CucarachaII::MO_LO16);
+    BuildMI(MBB, MBB.end(), DL, get(Cucaracha::MOVIMM16H))
+        .addReg(Cucaracha::R5, RegState::Define)
+        .addMBB(TBB, CucarachaII::MO_HI16)
+        .addReg(Cucaracha::R5);
+
+    // CJMP: (link output, mask input, target input)
+    BuildMI(MBB, MBB.end(), DL, get(Cucaracha::CJMP))
+        .addReg(Cucaracha::R6, RegState::Define)  // link output
+        .addReg(Cucaracha::R4)                    // mask register
+        .addReg(Cucaracha::R5);                   // target register
     NumInserted++;
   }
 
   // Insert any unconditional branch.
+  // For unconditional branch, generate:
+  // 1. Load target address into R4
+  // 2. JMP R4, R5 (link output in R5)
   if (Cond.empty() || FBB) {
-    BuildMI(MBB, MBB.end(), DL, get(Cucaracha::B))
-        .addMBB(Cond.empty() ? TBB : FBB);
+    MachineBasicBlock *Target = Cond.empty() ? TBB : FBB;
+    BuildMI(MBB, MBB.end(), DL, get(Cucaracha::MOVIMM16L), Cucaracha::R4)
+        .addMBB(Target, CucarachaII::MO_LO16);
+    BuildMI(MBB, MBB.end(), DL, get(Cucaracha::MOVIMM16H))
+        .addReg(Cucaracha::R4, RegState::Define)
+        .addMBB(Target, CucarachaII::MO_HI16)
+        .addReg(Cucaracha::R4);
+    BuildMI(MBB, MBB.end(), DL, get(Cucaracha::JMP))
+        .addReg(Cucaracha::R5, RegState::Define)  // link output (dead)
+        .addReg(Cucaracha::R4);                   // target register
     NumInserted++;
   }
   return NumInserted;
+}
+
+bool CucarachaInstrInfo::reverseBranchCondition(
+    SmallVectorImpl<MachineOperand> &Cond) const {
+  // Since we return true from analyzeBranch (cannot analyze), this should
+  // rarely be called. However, we implement it for completeness.
+  //
+  // Cucaracha's CJMP branches if (cpsr & mask) != 0
+  // To reverse, we would need to branch if (cpsr & mask) == 0
+  // But our instruction can only check != 0, not == 0
+  //
+  // The proper way to handle this would be to swap the branch targets,
+  // which is handled by the caller when we return false from analyzeBranch.
+  //
+  // Since we can't actually reverse the condition (we'd need a different
+  // instruction or negated mask semantics), return true to indicate failure.
+  return true;
 }
 
 void CucarachaInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                      MachineBasicBlock::iterator I,
                                      const DebugLoc &DL, MCRegister DestReg,
                                      MCRegister SrcReg, bool KillSrc) const {
-  BuildMI(MBB, I, I->getDebugLoc(), get(Cucaracha::MOVrr), DestReg)
+  BuildMI(MBB, I, DL, get(Cucaracha::MOV), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
@@ -184,7 +244,10 @@ void CucarachaInstrInfo::storeRegToStackSlot(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator I, Register SrcReg,
     bool isKill, int FrameIndex, const TargetRegisterClass *RC,
     const TargetRegisterInfo *TRI, Register VReg) const {
-  BuildMI(MBB, I, I->getDebugLoc(), get(Cucaracha::STR))
+  DebugLoc DL;
+  if (I != MBB.end())
+    DL = I->getDebugLoc();
+  BuildMI(MBB, I, DL, get(Cucaracha::PseudoST))
       .addReg(SrcReg, getKillRegState(isKill))
       .addFrameIndex(FrameIndex)
       .addImm(0);
@@ -196,7 +259,10 @@ void CucarachaInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                               const TargetRegisterClass *RC,
                                               const TargetRegisterInfo *TRI,
                                               Register VReg) const {
-  BuildMI(MBB, I, I->getDebugLoc(), get(Cucaracha::LDR), DestReg)
+  DebugLoc DL;
+  if (I != MBB.end())
+    DL = I->getDebugLoc();
+  BuildMI(MBB, I, DL, get(Cucaracha::PseudoLD), DestReg)
       .addFrameIndex(FrameIndex)
       .addImm(0);
 }
@@ -205,6 +271,151 @@ bool CucarachaInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   switch (MI.getOpcode()) {
   default:
     return false;
+  case Cucaracha::PseudoLD: {
+    // Expand PseudoLD to: compute effective address, then LD
+    // PseudoLD has: dst, base, offset
+    DebugLoc DL = MI.getDebugLoc();
+    MachineBasicBlock &MBB = *MI.getParent();
+    Register DstReg = MI.getOperand(0).getReg();
+    Register BaseReg = MI.getOperand(1).getReg();
+    int64_t Offset = MI.getOperand(2).getImm();
+
+    if (Offset == 0) {
+      // No offset - just emit LD directly with base register
+      BuildMI(MBB, MI, DL, get(Cucaracha::LD), DstReg)
+          .addReg(BaseReg);
+    } else {
+      // Need to compute effective address: base + offset
+      // Use R4 as temp for offset, R5 as temp for effective address
+      // 1. Load offset immediate into R4
+      BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16L), Cucaracha::R4)
+          .addImm(Offset & 0xffff);
+      if ((Offset >> 16) != 0 || Offset < 0) {
+        BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16H))
+            .addReg(Cucaracha::R4, RegState::Define)
+            .addImm((Offset >> 16) & 0xffff)
+            .addReg(Cucaracha::R4);
+      }
+      // 2. ADD base + offset -> R5
+      BuildMI(MBB, MI, DL, get(Cucaracha::ADD), Cucaracha::R5)
+          .addReg(BaseReg)
+          .addReg(Cucaracha::R4);
+      // 3. LD from effective address
+      BuildMI(MBB, MI, DL, get(Cucaracha::LD), DstReg)
+          .addReg(Cucaracha::R5);
+    }
+    MBB.erase(MI);
+    return true;
+  }
+  case Cucaracha::PseudoST: {
+    // Expand PseudoST to: compute effective address, then ST
+    // PseudoST has: src, base, offset
+    DebugLoc DL = MI.getDebugLoc();
+    MachineBasicBlock &MBB = *MI.getParent();
+    Register SrcReg = MI.getOperand(0).getReg();
+    Register BaseReg = MI.getOperand(1).getReg();
+    int64_t Offset = MI.getOperand(2).getImm();
+
+    if (Offset == 0) {
+      // No offset - just emit ST directly with base register
+      BuildMI(MBB, MI, DL, get(Cucaracha::ST))
+          .addReg(SrcReg)
+          .addReg(BaseReg);
+    } else {
+      // Need to compute effective address: base + offset
+      // Use R4 as temp for offset, R5 as temp for effective address
+      // 1. Load offset immediate into R4
+      BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16L), Cucaracha::R4)
+          .addImm(Offset & 0xffff);
+      if ((Offset >> 16) != 0 || Offset < 0) {
+        BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16H))
+            .addReg(Cucaracha::R4, RegState::Define)
+            .addImm((Offset >> 16) & 0xffff)
+            .addReg(Cucaracha::R4);
+      }
+      // 2. ADD base + offset -> R5
+      BuildMI(MBB, MI, DL, get(Cucaracha::ADD), Cucaracha::R5)
+          .addReg(BaseReg)
+          .addReg(Cucaracha::R4);
+      // 3. ST to effective address
+      BuildMI(MBB, MI, DL, get(Cucaracha::ST))
+          .addReg(SrcReg)
+          .addReg(Cucaracha::R5);
+    }
+    MBB.erase(MI);
+    return true;
+  }
+  case Cucaracha::PseudoBR: {
+    // Expand PseudoBR to: load address into temp reg, then JMP via register
+    // PseudoBR has one operand: the target basic block
+    DebugLoc DL = MI.getDebugLoc();
+    MachineBasicBlock &MBB = *MI.getParent();
+    const MachineOperand &Target = MI.getOperand(0);
+
+    // Use R4 as a temporary register for the target address
+    // First, load the block address into R4 using MOVIMM16L/MOVIMM16H
+    BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16L), Cucaracha::R4)
+        .addMBB(Target.getMBB(), CucarachaII::MO_LO16);
+    BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16H))
+        .addReg(Cucaracha::R4, RegState::Define)
+        .addMBB(Target.getMBB(), CucarachaII::MO_HI16)
+        .addReg(Cucaracha::R4);
+
+    // Now use JMP with the register - JMP takes (target, link)
+    // Use R5 as the link register (will be discarded for unconditional branch)
+    BuildMI(MBB, MI, DL, get(Cucaracha::JMP))
+        .addReg(Cucaracha::R5, RegState::Define)  // link output (dead)
+        .addReg(Cucaracha::R4);                   // target register
+
+    MBB.erase(MI);
+    return true;
+  }
+  case Cucaracha::PseudoBRCOND: {
+    // Expand PseudoBRCOND to: load mask, load address, then CJMP via registers
+    // PseudoBRCOND has three operands: cpsr (register), mask (immediate), target (basic block)
+    DebugLoc DL = MI.getDebugLoc();
+    MachineBasicBlock &MBB = *MI.getParent();
+    const MachineOperand &CpsrOp = MI.getOperand(0);
+    const MachineOperand &MaskOp = MI.getOperand(1);
+    const MachineOperand &Target = MI.getOperand(2);
+
+    // The CPSR value is in a register - we need to copy it to R6 for CJMP to read
+    // CJMP reads CPSR implicitly from hardware, but we have the value in a register
+    // For now, just use R6 as a placeholder - the hardware CJMP reads CPSR directly
+    Register CpsrReg = CpsrOp.getReg();
+    // Copy CPSR value to R6 (CJMP uses R6 as link output, but reads CPSR from hardware)
+    BuildMI(MBB, MI, DL, get(Cucaracha::MOV), Cucaracha::R6)
+        .addReg(CpsrReg);
+
+    // Load the mask immediate into R4
+    unsigned Mask = MaskOp.getImm();
+    BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16L), Cucaracha::R4)
+        .addImm(Mask & 0xffff);
+    if ((Mask >> 16) != 0) {
+      BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16H))
+          .addReg(Cucaracha::R4, RegState::Define)
+          .addImm((Mask >> 16) & 0xffff)
+          .addReg(Cucaracha::R4);
+    }
+
+    // Load the block address into R5
+    BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16L), Cucaracha::R5)
+        .addMBB(Target.getMBB(), CucarachaII::MO_LO16);
+    BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16H))
+        .addReg(Cucaracha::R5, RegState::Define)
+        .addMBB(Target.getMBB(), CucarachaII::MO_HI16)
+        .addReg(Cucaracha::R5);
+
+    // Now use CJMP with the registers - CJMP takes (mask, target, link)
+    // Use R6 as the link register output
+    BuildMI(MBB, MI, DL, get(Cucaracha::CJMP))
+        .addReg(Cucaracha::R6, RegState::Define)  // link output
+        .addReg(Cucaracha::R4)                    // mask register
+        .addReg(Cucaracha::R5);                   // target register
+
+    MBB.erase(MI);
+    return true;
+  }
   case Cucaracha::MOVi32: {
     DebugLoc DL = MI.getDebugLoc();
     MachineBasicBlock &MBB = *MI.getParent();
@@ -214,25 +425,25 @@ bool CucarachaInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
     const MachineOperand &MO = MI.getOperand(1);
 
-    auto LO16 = BuildMI(MBB, MI, DL, get(Cucaracha::MOVLOi16), DstReg);
-    auto HI16 =
-        BuildMI(MBB, MI, DL, get(Cucaracha::MOVHIi16))
-            .addReg(DstReg, RegState::Define | getDeadRegState(DstIsDead))
-            .addReg(DstReg);
-
     if (MO.isImm()) {
       const unsigned Imm = MO.getImm();
       const unsigned Lo16 = Imm & 0xffff;
       const unsigned Hi16 = (Imm >> 16) & 0xffff;
-      LO16 = LO16.addImm(Lo16);
-      HI16 = HI16.addImm(Hi16);
+      BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16L), DstReg)
+          .addImm(Lo16);
+      BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16H))
+          .addReg(DstReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addImm(Hi16)
+          .addReg(DstReg);
     } else {
       const GlobalValue *GV = MO.getGlobal();
       const unsigned TF = MO.getTargetFlags();
-      LO16 =
-          LO16.addGlobalAddress(GV, MO.getOffset(), TF | CucarachaII::MO_LO16);
-      HI16 =
-          HI16.addGlobalAddress(GV, MO.getOffset(), TF | CucarachaII::MO_HI16);
+      BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16L), DstReg)
+          .addGlobalAddress(GV, MO.getOffset(), TF | CucarachaII::MO_LO16);
+      BuildMI(MBB, MI, DL, get(Cucaracha::MOVIMM16H))
+          .addReg(DstReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addGlobalAddress(GV, MO.getOffset(), TF | CucarachaII::MO_HI16)
+          .addReg(DstReg);
     }
 
     MBB.erase(MI);

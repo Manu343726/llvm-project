@@ -15,6 +15,7 @@
 
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
 #define DEBUG_TYPE "mccodeemitter"
 #include "MCTargetDesc/CucarachaFixupKinds.h"
 #include "MCTargetDesc/CucarachaMCTargetDesc.h"
@@ -117,9 +118,9 @@ CucarachaMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
   unsigned FixupKind;
   switch (RefKind) {
   default:
-    MI.dump();
-    MO.dump();
-    SymbolRef->dump();
+    LLVM_DEBUG(MI.dump());
+    LLVM_DEBUG(MO.dump());
+    LLVM_DEBUG(SymbolRef->dump());
     llvm_unreachable("Unknown fixup kind!");
   case MCSymbolRefExpr::VK_None: {
     std::int64_t Res;

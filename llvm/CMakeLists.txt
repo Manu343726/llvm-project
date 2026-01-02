@@ -1190,6 +1190,8 @@ if( LLVM_INCLUDE_EXAMPLES )
 endif()
 
 if( LLVM_INCLUDE_TESTS )
+  enable_testing()
+
   if(EXISTS ${LLVM_MAIN_SRC_DIR}/projects/test-suite AND TARGET clang)
     include(LLVMExternalProjectUtils)
     llvm_ExternalProject_Add(test-suite ${LLVM_MAIN_SRC_DIR}/projects/test-suite
@@ -1201,6 +1203,11 @@ if( LLVM_INCLUDE_TESTS )
   add_subdirectory(utils/lit)
   add_subdirectory(test)
   add_subdirectory(unittests)
+
+  # Add Cucaracha toolchain tests if the directory exists
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../cucaracha-tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../cucaracha-tests cucaracha-tests)
+  endif()
 
   if (WIN32)
     # This utility is used to prevent crashing tests from calling Dr. Watson on

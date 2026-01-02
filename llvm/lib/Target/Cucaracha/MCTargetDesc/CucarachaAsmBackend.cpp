@@ -115,21 +115,27 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
   switch (Kind) {
   default:
     // A normal fixup (usually as result of resolving an internal symbol when
-    // finishing the object file) we return tbe value as is since we didn't ask
-    // for the fixup as prt of iselowering orselves (Like the hi/lo16 cases
-    // bellow which are explictly asked by our instruction lowering so 32 bit
+    // finishing the object file) we return the value as is since we didn't ask
+    // for the fixup as part of iselowering ourselves (Like the hi/lo16 cases
+    // below which are explicitly asked by our instruction lowering so 32 bit
     // immediate (usually addresses) move instructions can be encoded by means
     // of two consecutive 16 bit moves)
     return Value;
   case Cucaracha::fixup_cucaracha_mov_hi16_pcrel:
     Value >>= 16;
-  // Intentional fall-through
+    // Intentional fall-through
+    [[fallthrough]];
   case Cucaracha::fixup_cucaracha_mov_lo16_pcrel:
-    unsigned Hi4 = (Value & 0xF000) >> 12;
-    unsigned Lo12 = Value & 0x0FFF;
-    // inst{19-16} = Hi4;
-    // inst{11-0} = Lo12;
-    Value = (Hi4 << 16) | (Lo12);
+    // Cucaracha-compatible fixup encoding:
+    // Place the 16-bit immediate in bits 5-20 of the instruction.
+    // This aligns with Cucaracha's MOV immediate format:
+    //   - bits 0-4:   opcode (5 bits)  - preserved
+    //   - bits 5-20:  immediate (16 bits) - filled by fixup
+    //   - bits 21-28: register (8 bits) - preserved
+    //
+    // The fixup value is OR'd into the instruction, so we only set
+    // the immediate field bits, leaving opcode and register intact.
+    Value = (Value & 0xFFFF) << 5;
     return Value;
   }
   return Value;

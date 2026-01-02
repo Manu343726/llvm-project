@@ -35,7 +35,14 @@ enum NodeType {
   LOAD_SYM,
   // This loads a 32-bit immediate into a register.
   MOVEi32,
-  CALL
+  CALL,
+  // Select condition code
+  SELECT_CC,
+  // Compare two values and set CPSR flags
+  CMP,
+  // Conditional branch: BR_COND mask, target
+  // Semantics: if (CPSR & mask) != 0 { PC = target }
+  BR_COND
 };
 }
 
@@ -52,6 +59,11 @@ public:
   /// getTargetNodeName - This method returns the name of a target specific
   //  DAG node.
   virtual const char *getTargetNodeName(unsigned Opcode) const override;
+
+  /// EmitInstrWithCustomInserter - Expand SELECT and SELECT_CC pseudos.
+  MachineBasicBlock *
+  EmitInstrWithCustomInserter(MachineInstr &MI,
+                              MachineBasicBlock *BB) const override;
 
 private:
   const CucarachaSubtarget &Subtarget;
@@ -83,6 +95,22 @@ private:
 
   // LowerGlobalAddress - Emit a constant load to the global address.
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
+
+  // LowerBRCOND - Custom lower conditional branch.
+  SDValue LowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
+
+  // LowerBR_CC - Custom lower branch with condition code.
+  SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
+
+  // LowerSELECT_CC - Custom lower select with condition code.
+  SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+
+  // Allow constant memcpy source data to be inlined as immediate stores.
+  // This avoids the need for load/store sequences when copying constant arrays.
+  bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
+                                          Type *Ty) const override {
+    return true;
+  }
 };
 } // namespace llvm
 

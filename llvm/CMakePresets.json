@@ -14,7 +14,9 @@
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "LLVM_TARGETS_TO_BUILD": "X86;Sparc",
                 "LLVM_EXPERIMENTAL_TARGETS_TO_BUILD": "LEG;Cucaracha",
-                "LLVM_ENABLE_PROJECTS": "clang;clang-tools-extra"
+                "LLVM_ENABLE_PROJECTS": "clang;clang-tools-extra",
+                "LLVM_INCLUDE_TESTS": true,
+                "CUCARACHA_GENERATE_TD": true
             }
         },
         {
@@ -89,7 +91,7 @@
         {
             "name": "Visual Studio 2022",
             "configurePreset": "Visual Studio 2022",
-            "jobs": 10
+            "jobs": 12
         },
         {
             "name": "Linux GCC",

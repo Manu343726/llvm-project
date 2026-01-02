@@ -77,13 +77,14 @@ static unsigned materializeOffset(MachineFunction &MF, MachineBasicBlock &MBB,
     unsigned OffsetReg = Cucaracha::R4;
     unsigned OffsetLo = (unsigned)(Offset & 0xffff);
     unsigned OffsetHi = (unsigned)((Offset & 0xffff0000) >> 16);
-    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::MOVLOi16), OffsetReg)
+    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::MOVIMM16L), OffsetReg)
         .addImm(OffsetLo)
         .setMIFlag(MachineInstr::FrameSetup);
     if (OffsetHi) {
-      BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::MOVHIi16), OffsetReg)
-          .addReg(OffsetReg)
+      BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::MOVIMM16H))
+          .addReg(OffsetReg, RegState::Define)
           .addImm(OffsetHi)
+          .addReg(OffsetReg)
           .setMIFlag(MachineInstr::FrameSetup);
     }
     return OffsetReg;
@@ -103,16 +104,22 @@ void CucarachaFrameLowering::emitPrologue(MachineFunction &MF,
 
   // Adjust the stack pointer.
   unsigned StackReg = Cucaracha::SP;
+  // Always materialize offset into a register since we don't have immediate variants
   unsigned OffsetReg = materializeOffset(MF, MBB, MBBI, (unsigned)StackSize);
   if (OffsetReg) {
-    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::SUBrr), StackReg)
+    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::SUB), StackReg)
         .addReg(StackReg)
         .addReg(OffsetReg)
         .setMIFlag(MachineInstr::FrameSetup);
   } else {
-    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::SUBri), StackReg)
-        .addReg(StackReg)
+    // Small offset - materialize it anyway
+    unsigned TmpReg = Cucaracha::R4;
+    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::MOVIMM16L), TmpReg)
         .addImm(StackSize)
+        .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::SUB), StackReg)
+        .addReg(StackReg)
+        .addReg(TmpReg)
         .setMIFlag(MachineInstr::FrameSetup);
   }
 }
@@ -130,16 +137,22 @@ void CucarachaFrameLowering::emitEpilogue(MachineFunction &MF,
 
   // Restore the stack pointer to what it was at the beginning of the function.
   unsigned StackReg = Cucaracha::SP;
+  // Always materialize offset into a register since we don't have immediate variants
   unsigned OffsetReg = materializeOffset(MF, MBB, MBBI, (unsigned)StackSize);
   if (OffsetReg) {
-    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::ADDrr), StackReg)
+    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::ADD), StackReg)
         .addReg(StackReg)
         .addReg(OffsetReg)
         .setMIFlag(MachineInstr::FrameSetup);
   } else {
-    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::ADDri), StackReg)
-        .addReg(StackReg)
+    // Small offset - materialize it anyway
+    unsigned TmpReg = Cucaracha::R4;
+    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::MOVIMM16L), TmpReg)
         .addImm(StackSize)
+        .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, dl, TII.get(Cucaracha::ADD), StackReg)
+        .addReg(StackReg)
+        .addReg(TmpReg)
         .setMIFlag(MachineInstr::FrameSetup);
   }
 }

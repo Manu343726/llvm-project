@@ -68,6 +68,9 @@ public:
                                 const DebugLoc &DL,
                                 int *BytesAdded = nullptr) const override;
 
+  virtual bool
+  reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
+
   virtual void copyPhysReg(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator I, const DebugLoc &DL,
                            MCRegister DestReg, MCRegister SrcReg,

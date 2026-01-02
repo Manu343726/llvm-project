@@ -52,7 +52,10 @@ CucarachaRegisterInfo::CucarachaRegisterInfo()
 
 const uint16_t *
 CucarachaRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  static const uint16_t CalleeSavedRegs[] = {Cucaracha::R4,
+  // LR must be saved by any function that makes calls
+  // R4-R9 are general purpose callee-saved registers
+  static const uint16_t CalleeSavedRegs[] = {Cucaracha::LR,
+                                             Cucaracha::R4,
                                              Cucaracha::R5,
                                              Cucaracha::R6,
                                              Cucaracha::R7,
@@ -66,8 +69,11 @@ BitVector
 CucarachaRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
 
-  Reserved.set(Cucaracha::SP);
-  Reserved.set(Cucaracha::LR);
+  Reserved.set(Cucaracha::PC);   // Program counter - not allocatable
+  Reserved.set(Cucaracha::SP);   // Stack pointer - reserved for stack
+  Reserved.set(Cucaracha::CPSR); // Condition flags - not allocatable
+  // Note: LR is NOT reserved - it's a callee-saved register
+  // Functions that make calls will automatically save/restore it
   return Reserved;
 }
 
@@ -133,7 +139,7 @@ bool eliminateMoveFrameIndex(MachineBasicBlock &MBB, MachineFunction &MF,
   FIOp.ChangeToImmediate(Offset);
 
   // Now perform do the DestReg = SP + FrameIndex Offset
-  BuildMI(MF, DL, TII.get(Cucaracha::ADDrr), DestReg.getReg())
+  BuildMI(MF, DL, TII.get(Cucaracha::ADD), DestReg.getReg())
       .addReg(Cucaracha::SP)
       .addReg(DestReg.getReg());
 
@@ -158,8 +164,10 @@ bool CucarachaRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   default:
     // Not supported yet.
     return false;
-  case Cucaracha::LDR:
-  case Cucaracha::STR:
+  case Cucaracha::LD:
+  case Cucaracha::ST:
+  case Cucaracha::PseudoLD:
+  case Cucaracha::PseudoST:
     return eliminateLoadStoreFrameIndex(MI, MFI, FIOp, FIOperandNum, FI);
   case Cucaracha::MOVi32:
     return eliminateMoveFrameIndex(MBB, MF, MI, II, FIOp, TII, MFI, FI);
