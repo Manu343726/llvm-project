@@ -1,0 +1,29 @@
+	.text
+	.file	"hello_world.c"
+	.globl	main                            # -- Begin function main
+	.type	main,@function
+main:                                   # @main
+# %bb.0:
+	MOVIMM16L #8, r4
+	SUB sp, r4, sp
+	MOVIMM16L #4, r4
+	ADD sp, r4, r5
+	ST lr, r5
+	MOVIMM16L #0, r0
+	MOVIMM16H #0, r0
+	ADD sp, r0, r1
+	MOVIMM16L #0, r0
+	ST r0, r1
+	MOVIMM16L #42, r0
+	MOVIMM16L #4, r4
+	ADD sp, r4, r5
+	LD r5, lr
+	MOVIMM16L #8, r4
+	ADD sp, r4, sp
+	JMP lr, lr
+.Lfunc_end0:
+	.size	main, .Lfunc_end0-main
+                                        # -- End function
+	.ident	"clang version 17.0.6 (https://github.com/Manu343726/llvm-project.git 855e83e19854738ad53ca0d12e32d1af4912fe4a)"
+	.section	".note.GNU-stack","",@progbits
+	.addrsig
