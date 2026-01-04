@@ -1,22 +1,26 @@
 # Cucaracha Toolchain Integration Tests
 # Always integrated with LLVM build system
 
-# Find required tools
-find_program(CUCARACHA_CLI cucaracha 
-    HINTS ${CMAKE_SOURCE_DIR}/../../cucaracha
-    PATHS ${CMAKE_SOURCE_DIR}/../../cucaracha
-    DOC "Cucaracha CLI tool")
+# Path to the Cucaracha Go project (relative to this CMakeLists.txt)
+set(CUCARACHA_GO_PROJECT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../cucaracha")
 
-message(STATUS "Cucaracha Tests - Looking for CLI at: ${CMAKE_SOURCE_DIR}/../../cucaracha")
+# Find Go executable
+find_program(GO_EXECUTABLE go)
+
+message(STATUS "Cucaracha Tests - Go project at: ${CUCARACHA_GO_PROJECT_DIR}")
 message(STATUS "Cucaracha Tests - Clang will be resolved from clang target")
 
-# Check for CLI but don't stop if not found - just disable execution tests
+# Check for Go but don't stop if not found - just disable execution tests
 set(CUCARACHA_CLI_AVAILABLE FALSE)
-if(CUCARACHA_CLI)
+if(GO_EXECUTABLE AND EXISTS "${CUCARACHA_GO_PROJECT_DIR}/go.mod")
     set(CUCARACHA_CLI_AVAILABLE TRUE)
-    message(STATUS "Cucaracha CLI found: ${CUCARACHA_CLI}")
+    message(STATUS "Cucaracha CLI available via: ${GO_EXECUTABLE} run . (in ${CUCARACHA_GO_PROJECT_DIR})")
 else()
-    message(WARNING "Cucaracha CLI not found. Execution tests will be skipped, but compilation tests will still run.")
+    if(NOT GO_EXECUTABLE)
+        message(WARNING "Go executable not found. Execution tests will be skipped, but compilation tests will still run.")
+    else()
+        message(WARNING "Cucaracha Go project not found at ${CUCARACHA_GO_PROJECT_DIR}. Execution tests will be skipped, but compilation tests will still run.")
+    endif()
 endif()
 
 # Test programs directory
@@ -110,7 +114,8 @@ function(add_cucaracha_test TEST_NAME SOURCE_FILE)
         add_test(
             NAME "cucaracha_${TEST_NAME}_execute"
             COMMAND ${CMAKE_COMMAND}
-                -DCUCARACHA_CLI=${CUCARACHA_CLI}
+                -DGO_EXECUTABLE=${GO_EXECUTABLE}
+                -DCUCARACHA_GO_PROJECT_DIR=${CUCARACHA_GO_PROJECT_DIR}
                 -DPROGRAM=${OUTPUT_PATH}.cucaracha
                 -DEXPECTED_OUTPUT=${ARG_EXPECTED_OUTPUT}
                 -P ${SCRIPTS_DIR}/verify_output.cmake
@@ -128,7 +133,8 @@ function(add_cucaracha_test TEST_NAME SOURCE_FILE)
         add_test(
             NAME "cucaracha_${TEST_NAME}_execute_binary"
             COMMAND ${CMAKE_COMMAND}
-                -DCUCARACHA_CLI=${CUCARACHA_CLI}
+                -DGO_EXECUTABLE=${GO_EXECUTABLE}
+                -DCUCARACHA_GO_PROJECT_DIR=${CUCARACHA_GO_PROJECT_DIR}
                 -DPROGRAM=${OUTPUT_PATH}.o
                 -DEXPECTED_OUTPUT=${ARG_EXPECTED_OUTPUT}
                 -P ${SCRIPTS_DIR}/verify_output.cmake
@@ -161,7 +167,7 @@ add_cucaracha_test("functions" "functions.c" EXPECTED_OUTPUT "0")
 if(CUCARACHA_CLI_AVAILABLE)
     message(STATUS "Cucaracha Tests: Compilation and execution tests enabled")
 else()
-    message(STATUS "Cucaracha Tests: Only compilation tests enabled (CLI not found)")
+    message(STATUS "Cucaracha Tests: Only compilation tests enabled (Go or Cucaracha project not found)")
 endif()
 
 # Custom target to run all cucaracha tests
@@ -171,4 +177,4 @@ add_custom_target(cucaracha_tests
     USES_TERMINAL
 )
 
-message(STATUS "Cucaracha Tests: Added ${CMAKE_CURRENT_SOURCE_DIR} with CLI: ${CUCARACHA_CLI} and Clang target dependency")
+message(STATUS "Cucaracha Tests: Added ${CMAKE_CURRENT_SOURCE_DIR} with Go: ${GO_EXECUTABLE} and Clang target dependency")

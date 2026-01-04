@@ -1,8 +1,12 @@
 # CMake script to run cucaracha program and verify output
-# Usage: cmake -DCUCARACHA_CLI=<path> -DPROGRAM=<path> -DEXPECTED_OUTPUT=<value> -P verify_output.cmake
+# Usage: cmake -DGO_EXECUTABLE=<path> -DCUCARACHA_GO_PROJECT_DIR=<path> -DPROGRAM=<path> -DEXPECTED_OUTPUT=<value> -P verify_output.cmake
 
-if(NOT DEFINED CUCARACHA_CLI)
-    message(FATAL_ERROR "CUCARACHA_CLI not defined")
+if(NOT DEFINED GO_EXECUTABLE)
+    message(FATAL_ERROR "GO_EXECUTABLE not defined")
+endif()
+
+if(NOT DEFINED CUCARACHA_GO_PROJECT_DIR)
+    message(FATAL_ERROR "CUCARACHA_GO_PROJECT_DIR not defined")
 endif()
 
 if(NOT DEFINED PROGRAM)
@@ -13,9 +17,10 @@ if(NOT DEFINED EXPECTED_OUTPUT)
     message(FATAL_ERROR "EXPECTED_OUTPUT not defined")
 endif()
 
-# Run the program and capture output
+# Run the program using go run and capture output
 execute_process(
-    COMMAND "${CUCARACHA_CLI}" cpu exec "${PROGRAM}"
+    COMMAND "${GO_EXECUTABLE}" run . cpu exec "${PROGRAM}"
+    WORKING_DIRECTORY "${CUCARACHA_GO_PROJECT_DIR}"
     OUTPUT_VARIABLE ACTUAL_OUTPUT
     ERROR_VARIABLE ERROR_OUTPUT
     RESULT_VARIABLE EXIT_CODE
