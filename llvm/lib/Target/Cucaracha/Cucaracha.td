@@ -15,241 +15,57 @@
 // Cucaracha documentation
 //===----------------------------------------------------------------------===//
 /*
-total supported opcodes: 18
-total implemented instructions: 18
+total supported opcodes: 24
+total implemented instructions: 24
 instruction encoding lengh (bits): 32
 opcode encoding lengh (bits): 5
 
 Opcodes:
 
- - LD (code: 4, binary: 00100, hex: 0x4)
- - SUB (code: 7, binary: 00111, hex: 0x7)
- - DIV (code: 9, binary: 01001, hex: 0x9)
- - MOD (code: 10, binary: 01010, hex: 0xa)
- - ASR (code: 17, binary: 10001, hex: 0x11)
- - MOVIMM16L (code: 2, binary: 00010, hex: 0x2)
- - ADD (code: 6, binary: 00110, hex: 0x6)
- - MUL (code: 8, binary: 01000, hex: 0x8)
- - JMP (code: 12, binary: 01100, hex: 0xc)
- - LSL (code: 14, binary: 01110, hex: 0xe)
  - LSR (code: 15, binary: 01111, hex: 0xf)
+ - ASL (code: 16, binary: 10000, hex: 0x10)
+ - ADD (code: 6, binary: 00110, hex: 0x6)
+ - DIV (code: 9, binary: 01001, hex: 0x9)
+ - ASR (code: 17, binary: 10001, hex: 0x11)
+ - HLT (code: 18, binary: 10010, hex: 0x12)
+ - RETI (code: 22, binary: 10110, hex: 0x16)
+ - SIG (code: 23, binary: 10111, hex: 0x17)
+ - MOVIMM16H (code: 1, binary: 00001, hex: 0x1)
+ - SUB (code: 7, binary: 00111, hex: 0x7)
+ - LSL (code: 14, binary: 01110, hex: 0xe)
+ - DI (code: 20, binary: 10100, hex: 0x14)
+ - NOP (code: 0, binary: 00000, hex: 0x0)
+ - MOVIMM16L (code: 2, binary: 00010, hex: 0x2)
  - MOV (code: 3, binary: 00011, hex: 0x3)
+ - LD (code: 4, binary: 00100, hex: 0x4)
  - ST (code: 5, binary: 00101, hex: 0x5)
  - CMP (code: 11, binary: 01011, hex: 0xb)
+ - EI (code: 19, binary: 10011, hex: 0x13)
+ - INT (code: 21, binary: 10101, hex: 0x15)
+ - MUL (code: 8, binary: 01000, hex: 0x8)
+ - MOD (code: 10, binary: 01010, hex: 0xa)
+ - JMP (code: 12, binary: 01100, hex: 0xc)
  - CJMP (code: 13, binary: 01101, hex: 0xd)
- - ASL (code: 16, binary: 10000, hex: 0x10)
- - NOP (code: 0, binary: 00000, hex: 0x0)
- - MOVIMM16H (code: 1, binary: 00001, hex: 0x1)
 
 Instructions:
 
-  CJMP (code: 13, binary: 01101, hex: 0xd) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+  RETI (code: 22, binary: 10110, hex: 0x16) 
 
     Description:
 
-      Conditional jump to the address contained in a 32 bit integer register if the condition code (stored in a register) is satisfied by the current CPSR flags
+      Returns from an interrupt handler, restoring saved state and re-enabling interrupts.
 
     Memory layout:
 
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:state registers,general purpose integer registers> |   01101    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+      4            0
+      +------------+
+      |   10110    |
+      +------------+
+       <- 5 bits -> 
 
     Operands:
 
-     [0] <Int32:general purpose integer registers,state registers>: Register containing the condition code (0-14: EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL)
-     [1] <Int32:general purpose integer registers,state registers>: Register containing the target address
-     [2] <Int32:general purpose integer registers,state registers>: Link register - stores current PC before jump
-
-
-  MUL (code: 8, binary: 01000, hex: 0x8) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Multiplies the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01000    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: first source register
-     [1] <Int32:general purpose integer registers,state registers>: second source register
-     [2] <Int32:general purpose integer registers,state registers>: destination register
-
-
-  LSL (code: 14, binary: 01110, hex: 0xe) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Logical shift left the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01110    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: first source register
-     [1] <Int32:general purpose integer registers,state registers>: second source register
-     [2] <Int32:general purpose integer registers,state registers>: destination register
-
-
-  ST (code: 5, binary: 00101, hex: 0x5) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Copies a word (32 bit) from a 32 bit integer register and writes it to a location in memory
-
-    Memory layout:
-
-      20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00101    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: Register containing the value to store
-     [1] <Int32:general purpose integer registers,state registers>: Register containing the memory address to write to
-
-
-  ADD (code: 6, binary: 00110, hex: 0x6) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Adds the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00110    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: first source register
-     [1] <Int32:general purpose integer registers,state registers>: second source register
-     [2] <Int32:general purpose integer registers,state registers>: destination register
-
-
-  SUB (code: 7, binary: 00111, hex: 0x7) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers>
-
-    Description:
-
-      Subsctracts the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:state registers,general purpose integer registers> | <Int32:state registers,general purpose integer registers> |   00111    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: first source register
-     [1] <Int32:general purpose integer registers,state registers>: second source register
-     [2] <Int32:general purpose integer registers,state registers>: destination register
-
-
-  DIV (code: 9, binary: 01001, hex: 0x9) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Divides the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01001    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: first source register
-     [1] <Int32:general purpose integer registers,state registers>: second source register
-     [2] <Int32:general purpose integer registers,state registers>: destination register
-
-
-  LSR (code: 15, binary: 01111, hex: 0xf) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Logical shift right the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:state registers,general purpose integer registers> | <Int32:general purpose integer registers,state registers> | <Int32:state registers,general purpose integer registers> |   01111    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: first source register
-     [1] <Int32:state registers,general purpose integer registers>: second source register
-     [2] <Int32:general purpose integer registers,state registers>: destination register
-
-
-  ASR (code: 17, binary: 10001, hex: 0x11) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Arithmetic shift right the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   10001    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:state registers,general purpose integer registers>: first source register
-     [1] <Int32:general purpose integer registers,state registers>: second source register
-     [2] <Int32:general purpose integer registers,state registers>: destination register
-
-
-  ASL (code: 16, binary: 10000, hex: 0x10) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-
-    Description:
-
-      Arithmetic shift left the values of two integer registers and save the result into an integer register
-
-    Memory layout:
-
-      28                                                          20                                                          12                                                          4            0
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:state registers,general purpose integer registers> |   10000    |
-      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
-
-    Operands:
-
-     [0] <Int32:general purpose integer registers,state registers>: first source register
-     [1] <Int32:general purpose integer registers,state registers>: second source register
-     [2] <Int32:state registers,general purpose integer registers>: destination register
+      (none)
 
 
   NOP (code: 0, binary: 00000, hex: 0x0) 
@@ -271,6 +87,66 @@ Instructions:
       (none)
 
 
+  ASR (code: 17, binary: 10001, hex: 0x11) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Arithmetic shift right the values of two integer registers and save the result into an integer register
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   10001    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:state registers,general purpose integer registers>: first source register
+     [1] <Int32:general purpose integer registers,state registers>: second source register
+     [2] <Int32:state registers,general purpose integer registers>: destination register
+
+
+  HLT (code: 18, binary: 10010, hex: 0x12) 
+
+    Description:
+
+      Halts CPU execution. The CPU will stop executing instructions until reset.
+
+    Memory layout:
+
+      4            0
+      +------------+
+      |   10010    |
+      +------------+
+       <- 5 bits -> 
+
+    Operands:
+
+      (none)
+
+
+  SIG (code: 23, binary: 10111, hex: 0x17) <Source:Immediate:Int32> <Source:Immediate:Int32>
+
+    Description:
+
+      Sends a signal to an external peripheral or system component
+
+    Memory layout:
+
+      20                         12                         4            0
+      +--------------------------+--------------------------+------------+
+      | <Source:Immediate:Int32> | <Source:Immediate:Int32> |   10111    |
+      +--------------------------+--------------------------+------------+
+       <-------- 8 bits --------> <-------- 8 bits --------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Source:Immediate:Int32>: Signal number
+     [1] <Source:Immediate:Int32>: Target peripheral or component ID
+
+
   MOVIMM16L (code: 2, binary: 00010, hex: 0x2) <Source:Immediate:Int32> <Int32:general purpose integer registers,state registers>
 
     Description:
@@ -288,31 +164,51 @@ Instructions:
     Operands:
 
      [0] <Source:Immediate:Int32>: source immediate. The higher 16 bits are ignored
-     [1] <Int32:state registers,general purpose integer registers>: destination register
+     [1] <Int32:general purpose integer registers,state registers>: destination register
 
 
-  CMP (code: 11, binary: 01011, hex: 0xb) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+  ST (code: 5, binary: 00101, hex: 0x5) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
 
     Description:
 
-      Compares the values of two 32 bit integer registers and stores the comparison result into CPSR
+      Copies a word (32 bit) from a 32 bit integer register and writes it to a location in memory
+
+    Memory layout:
+
+      20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00101    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: Register containing the value to store
+     [1] <Int32:general purpose integer registers,state registers>: Register containing the memory address to write to
+
+
+  SUB (code: 7, binary: 00111, hex: 0x7) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Subsctracts the values of two integer registers and save the result into an integer register
 
     Memory layout:
 
       28                                                          20                                                          12                                                          4            0
       +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01011    |
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00111    |
       +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
        <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
 
     Operands:
 
-     [0] <Int32:general purpose integer registers,state registers>: First operand
-     [1] <Int32:general purpose integer registers,state registers>: Second operand
-     [2] <Int32:general purpose integer registers,state registers>: Destination register (CPSR)
+     [0] <Int32:state registers,general purpose integer registers>: first source register
+     [1] <Int32:general purpose integer registers,state registers>: second source register
+     [2] <Int32:state registers,general purpose integer registers>: destination register
 
 
-  MOD (code: 10, binary: 01010, hex: 0xa) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+  MOD (code: 10, binary: 01010, hex: 0xa) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
 
     Description:
 
@@ -333,23 +229,86 @@ Instructions:
      [2] <Int32:general purpose integer registers,state registers>: destination register
 
 
-  MOV (code: 3, binary: 00011, hex: 0x3) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
+  LSL (code: 14, binary: 01110, hex: 0xe) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
 
     Description:
 
-      Copies the value of a 32 bit integer register into another 32 bit integer register
+      Logical shift left the values of two integer registers and save the result into an integer register
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01110    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: first source register
+     [1] <Int32:general purpose integer registers,state registers>: second source register
+     [2] <Int32:general purpose integer registers,state registers>: destination register
+
+
+  ASL (code: 16, binary: 10000, hex: 0x10) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Arithmetic shift left the values of two integer registers and save the result into an integer register
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   10000    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: first source register
+     [1] <Int32:general purpose integer registers,state registers>: second source register
+     [2] <Int32:general purpose integer registers,state registers>: destination register
+
+
+  CMP (code: 11, binary: 01011, hex: 0xb) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Compares the values of two 32 bit integer registers and stores the comparison result into CPSR
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01011    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: First operand
+     [1] <Int32:state registers,general purpose integer registers>: Second operand
+     [2] <Int32:general purpose integer registers,state registers>: Destination register (CPSR)
+
+
+  LD (code: 4, binary: 00100, hex: 0x4) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers>
+
+    Description:
+
+      Copies a word (32 bit) from a memory location and stores it in a register
 
     Memory layout:
 
       20                                                          12                                                          4            0
       +-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00011    |
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00100    |
       +-----------------------------------------------------------+-----------------------------------------------------------+------------+
        <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
 
     Operands:
 
-     [0] <Int32:general purpose integer registers,state registers>: source register
+     [0] <Int32:general purpose integer registers,state registers>: Register containing the memory address to copy from
      [1] <Int32:general purpose integer registers,state registers>: destination register
 
 
@@ -363,17 +322,118 @@ Instructions:
 
       20                                                          12                                                          4            0
       +-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:general purpose integer registers,state registers> | <Int32:state registers,general purpose integer registers> |   01100    |
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01100    |
       +-----------------------------------------------------------+-----------------------------------------------------------+------------+
        <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
 
     Operands:
 
      [0] <Int32:general purpose integer registers,state registers>: Register containing the target address
-     [1] <Int32:general purpose integer registers,state registers>: Register where the current instruction address will be saved before the jump
+     [1] <Int32:state registers,general purpose integer registers>: Register where the current instruction address will be saved before the jump
 
 
-  MOVIMM16H (code: 1, binary: 00001, hex: 0x1) <Source:Immediate:Int32> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+  CJMP (code: 13, binary: 01101, hex: 0xd) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Conditional jump to the address contained in a 32 bit integer register if the condition code (stored in a register) is satisfied by the current CPSR flags
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:state registers,general purpose integer registers> |   01101    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: Register containing the condition code (0-14: EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL)
+     [1] <Int32:general purpose integer registers,state registers>: Register containing the target address
+     [2] <Int32:general purpose integer registers,state registers>: Link register - stores current PC before jump
+
+
+  ADD (code: 6, binary: 00110, hex: 0x6) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Adds the values of two integer registers and save the result into an integer register
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00110    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: first source register
+     [1] <Int32:general purpose integer registers,state registers>: second source register
+     [2] <Int32:state registers,general purpose integer registers>: destination register
+
+
+  DIV (code: 9, binary: 01001, hex: 0x9) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Divides the values of two integer registers and save the result into an integer register
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01001    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: first source register
+     [1] <Int32:state registers,general purpose integer registers>: second source register
+     [2] <Int32:general purpose integer registers,state registers>: destination register
+
+
+  EI (code: 19, binary: 10011, hex: 0x13) 
+
+    Description:
+
+      Enables interrupts. After this instruction, the CPU will respond to interrupt requests.
+
+    Memory layout:
+
+      4            0
+      +------------+
+      |   10011    |
+      +------------+
+       <- 5 bits -> 
+
+    Operands:
+
+      (none)
+
+
+  DI (code: 20, binary: 10100, hex: 0x14) 
+
+    Description:
+
+      Disables interrupts. After this instruction, the CPU will ignore interrupt requests.
+
+    Memory layout:
+
+      4            0
+      +------------+
+      |   10100    |
+      +------------+
+       <- 5 bits -> 
+
+    Operands:
+
+      (none)
+
+
+  MOVIMM16H (code: 1, binary: 00001, hex: 0x1) <Source:Immediate:Int32> <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
 
     Description:
 
@@ -394,24 +454,85 @@ Instructions:
      [2] <Int32:general purpose integer registers,state registers>: source register (tied to dst, implicit)
 
 
-  LD (code: 4, binary: 00100, hex: 0x4) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+  MOV (code: 3, binary: 00011, hex: 0x3) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
 
     Description:
 
-      Copies a word (32 bit) from a memory location and stores it in a register
+      Copies the value of a 32 bit integer register into another 32 bit integer register
 
     Memory layout:
 
       20                                                          12                                                          4            0
       +-----------------------------------------------------------+-----------------------------------------------------------+------------+
-      | <Int32:state registers,general purpose integer registers> | <Int32:general purpose integer registers,state registers> |   00100    |
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   00011    |
       +-----------------------------------------------------------+-----------------------------------------------------------+------------+
        <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
 
     Operands:
 
-     [0] <Int32:general purpose integer registers,state registers>: Register containing the memory address to copy from
-     [1] <Int32:general purpose integer registers,state registers>: destination register
+     [0] <Int32:general purpose integer registers,state registers>: source register
+     [1] <Int32:state registers,general purpose integer registers>: destination register
+
+
+  MUL (code: 8, binary: 01000, hex: 0x8) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Multiplies the values of two integer registers and save the result into an integer register
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01000    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: first source register
+     [1] <Int32:state registers,general purpose integer registers>: second source register
+     [2] <Int32:general purpose integer registers,state registers>: destination register
+
+
+  LSR (code: 15, binary: 01111, hex: 0xf) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+
+    Description:
+
+      Logical shift right the values of two integer registers and save the result into an integer register
+
+    Memory layout:
+
+      28                                                          20                                                          12                                                          4            0
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+      | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> | <Int32:general purpose integer registers,state registers> |   01111    |
+      +-----------------------------------------------------------+-----------------------------------------------------------+-----------------------------------------------------------+------------+
+       <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <------------------------ 8 bits -------------------------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Int32:general purpose integer registers,state registers>: first source register
+     [1] <Int32:general purpose integer registers,state registers>: second source register
+     [2] <Int32:general purpose integer registers,state registers>: destination register
+
+
+  INT (code: 21, binary: 10101, hex: 0x15) <Source:Immediate:Int32>
+
+    Description:
+
+      Triggers an interrupt with the specified vector number.
+
+    Memory layout:
+
+      12                         4            0
+      +--------------------------+------------+
+      | <Source:Immediate:Int32> |   10101    |
+      +--------------------------+------------+
+       <-------- 8 bits --------> <- 5 bits -> 
+
+    Operands:
+
+     [0] <Source:Immediate:Int32>: interrupt vector number (0-255)
 
 
 
@@ -449,23 +570,6 @@ class CucarachaReg<bits<16> Enc, string n> : Register<n> {
 
 
 //
-// CPU state registers
-//
-
-// Program Counter
-def PC  : CucarachaReg<0, "pc">;
-
-// Stack Pointer. Points to the current position of the top of the stack
-def SP  : CucarachaReg<1, "sp">;
-
-// CPU state register. Stores CPU state such as comparison flag, carry flag, etc
-def CPSR  : CucarachaReg<2, "cpsr">;
-
-// Link register. Stores the return adress of a call
-def LR  : CucarachaReg<3, "lr">;
-
-
-//
 // General purpose word-sized 32 bit integer registers
 //
 
@@ -500,13 +604,30 @@ def R8  : CucarachaReg<24, "r8">;
 def R9  : CucarachaReg<25, "r9">;
 
 
+//
+// CPU state registers
+//
+
+// Program Counter
+def PC  : CucarachaReg<0, "pc">;
+
+// Stack Pointer. Points to the current position of the top of the stack
+def SP  : CucarachaReg<1, "sp">;
+
+// CPU state register. Stores CPU state such as comparison flag, carry flag, etc
+def CPSR  : CucarachaReg<2, "cpsr">;
+
+// Link register. Stores the return adress of a call
+def LR  : CucarachaReg<3, "lr">;
+
+
 
 // Register classes.
 
 def IntegerRegisters : RegisterClass<"Cucaracha",
   [i32],
   32,
-  (add R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, PC, SP, CPSR, LR)>;
+  (add PC, SP, CPSR, LR, R0, R1, R2, R3, R4, R5, R6, R7, R8, R9)>;
 
 
 //===-- CucarachaConditionCodes.td - Cucaracha Condition Codes -*- tablegen -*-===//
@@ -780,13 +901,52 @@ def addr : ComplexPattern<iPTR, 2, "SelectAddr", [frameindex], []>;
 
 
 
-// DIV (code: 9, binary: 01001, hex: 0x9) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Divides the values of two integer registers and save the result into an integer register
-def DIV  : InstCucaracha<(outs IntegerRegisters:$dst ),
+// DI (code: 20, binary: 10100, hex: 0x14) 
+// Disables interrupts. After this instruction, the CPU will ignore interrupt requests.
+def DI  : InstCucaracha<(outs  ),
+                   (ins ),
+                   "DI ",
+                   []> {
+  let Inst{ 4 - 0 } = 0b10100; // opcode
+}
+
+
+// MOVIMM16H (code: 1, binary: 00001, hex: 0x1) <Source:Immediate:Int32> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+// Copies the 16 most significant bits of a 32 bit immediate into a 32 bit integer register, preserving the low 16 bits
+let Constraints = "$src = $dst" in
+def MOVIMM16H  : InstCucaracha<(outs IntegerRegisters:$dst ),
+                   (ins i32imm:$imm, IntegerRegisters:$src),
+                   "MOVIMM16H $imm, $dst",
+                   []> {
+  let Inst{ 4 - 0 } = 0b00001; // opcode
+  bits<16> imm;
+  let Inst{ 20-5 } = imm;
+  bits<8> dst;
+  let Inst{ 28-21 } = dst;
+}
+
+
+// MOV (code: 3, binary: 00011, hex: 0x3) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers>
+// Copies the value of a 32 bit integer register into another 32 bit integer register
+def MOV  : InstCucaracha<(outs IntegerRegisters:$dst ),
+                   (ins IntegerRegisters:$src),
+                   "MOV $src, $dst",
+                   []> {
+  let Inst{ 4 - 0 } = 0b00011; // opcode
+  bits<8> src;
+  let Inst{ 12-5 } = src;
+  bits<8> dst;
+  let Inst{ 20-13 } = dst;
+}
+
+
+// MUL (code: 8, binary: 01000, hex: 0x8) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
+// Multiplies the values of two integer registers and save the result into an integer register
+def MUL  : InstCucaracha<(outs IntegerRegisters:$dst ),
                    (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
-                   "DIV $src1, $src2, $dst",
-                   [(set i32:$dst, (sdiv i32:$src1, i32:$src2))]> {
-  let Inst{ 4 - 0 } = 0b01001; // opcode
+                   "MUL $src1, $src2, $dst",
+                   [(set i32:$dst, (mul i32:$src1, i32:$src2))]> {
+  let Inst{ 4 - 0 } = 0b01000; // opcode
   bits<8> src1;
   let Inst{ 12-5 } = src1;
   bits<8> src2;
@@ -796,7 +956,7 @@ def DIV  : InstCucaracha<(outs IntegerRegisters:$dst ),
 }
 
 
-// LSR (code: 15, binary: 01111, hex: 0xf) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+// LSR (code: 15, binary: 01111, hex: 0xf) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
 // Logical shift right the values of two integer registers and save the result into an integer register
 def LSR  : InstCucaracha<(outs IntegerRegisters:$dst ),
                    (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
@@ -809,6 +969,38 @@ def LSR  : InstCucaracha<(outs IntegerRegisters:$dst ),
   let Inst{ 20-13 } = src2;
   bits<8> dst;
   let Inst{ 28-21 } = dst;
+}
+
+
+// INT (code: 21, binary: 10101, hex: 0x15) <Source:Immediate:Int32>
+// Triggers an interrupt with the specified vector number.
+def INT  : InstCucaracha<(outs  ),
+                   (ins i32imm:$src),
+                   "INT $src",
+                   []> {
+  let Inst{ 4 - 0 } = 0b10101; // opcode
+  bits<8> src;
+  let Inst{ 12-5 } = src;
+}
+
+
+// RETI (code: 22, binary: 10110, hex: 0x16) 
+// Returns from an interrupt handler, restoring saved state and re-enabling interrupts.
+def RETI  : InstCucaracha<(outs  ),
+                   (ins ),
+                   "RETI ",
+                   []> {
+  let Inst{ 4 - 0 } = 0b10110; // opcode
+}
+
+
+// NOP (code: 0, binary: 00000, hex: 0x0) 
+// No operation. All internal state except from the program counter stays the same afer the execution of the instruction. Takes only 1 CPU cicle
+def NOP  : InstCucaracha<(outs  ),
+                   (ins ),
+                   "NOP ",
+                   []> {
+  let Inst{ 4 - 0 } = 0b00000; // opcode
 }
 
 
@@ -828,29 +1020,27 @@ def ASR  : InstCucaracha<(outs IntegerRegisters:$dst ),
 }
 
 
-// ASL (code: 16, binary: 10000, hex: 0x10) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Arithmetic shift left the values of two integer registers and save the result into an integer register
-def ASL  : InstCucaracha<(outs IntegerRegisters:$dst ),
-                   (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
-                   "ASL $src1, $src2, $dst",
-                   [(set i32:$dst, (shl i32:$src1, i32:$src2))]> {
-  let Inst{ 4 - 0 } = 0b10000; // opcode
+// HLT (code: 18, binary: 10010, hex: 0x12) 
+// Halts CPU execution. The CPU will stop executing instructions until reset.
+def HLT  : InstCucaracha<(outs  ),
+                   (ins ),
+                   "HLT ",
+                   []> {
+  let Inst{ 4 - 0 } = 0b10010; // opcode
+}
+
+
+// SIG (code: 23, binary: 10111, hex: 0x17) <Source:Immediate:Int32> <Source:Immediate:Int32>
+// Sends a signal to an external peripheral or system component
+def SIG  : InstCucaracha<(outs  ),
+                   (ins i32imm:$src1, i32imm:$src2),
+                   "SIG $src1, $src2",
+                   []> {
+  let Inst{ 4 - 0 } = 0b10111; // opcode
   bits<8> src1;
   let Inst{ 12-5 } = src1;
   bits<8> src2;
   let Inst{ 20-13 } = src2;
-  bits<8> dst;
-  let Inst{ 28-21 } = dst;
-}
-
-
-// NOP (code: 0, binary: 00000, hex: 0x0) 
-// No operation. All internal state except from the program counter stays the same afer the execution of the instruction. Takes only 1 CPU cicle
-def NOP  : InstCucaracha<(outs  ),
-                   (ins ),
-                   "NOP ",
-                   []> {
-  let Inst{ 4 - 0 } = 0b00000; // opcode
 }
 
 
@@ -868,17 +1058,32 @@ def MOVIMM16L  : InstCucaracha<(outs IntegerRegisters:$dst ),
 }
 
 
-// CMP (code: 11, binary: 01011, hex: 0xb) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Compares the values of two 32 bit integer registers and stores the comparison result into CPSR
-def CMP  : InstCucaracha<(outs IntegerRegisters:$dst ),
-                   (ins IntegerRegisters:$lhs, IntegerRegisters:$rhs),
-                   "CMP $lhs, $rhs, $dst",
-                   [(set i32:$dst, (cucaracha_cmp i32:$lhs, i32:$rhs))]> {
-  let Inst{ 4 - 0 } = 0b01011; // opcode
-  bits<8> lhs;
-  let Inst{ 12-5 } = lhs;
-  bits<8> rhs;
-  let Inst{ 20-13 } = rhs;
+// ST (code: 5, binary: 00101, hex: 0x5) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
+// Copies a word (32 bit) from a 32 bit integer register and writes it to a location in memory
+def ST  : InstCucaracha<(outs  ),
+                   (ins IntegerRegisters:$src, IntegerRegisters:$addr),
+                   "ST $src, $addr",
+                   []> {
+  let Inst{ 4 - 0 } = 0b00101; // opcode
+  bits<8> src;
+  let Inst{ 12-5 } = src;
+  bits<8> addr;
+  let Inst{ 20-13 } = addr;
+  let mayStore = true;
+}
+
+
+// SUB (code: 7, binary: 00111, hex: 0x7) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
+// Subsctracts the values of two integer registers and save the result into an integer register
+def SUB  : InstCucaracha<(outs IntegerRegisters:$dst ),
+                   (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
+                   "SUB $src1, $src2, $dst",
+                   [(set i32:$dst, (sub i32:$src1, i32:$src2))]> {
+  let Inst{ 4 - 0 } = 0b00111; // opcode
+  bits<8> src1;
+  let Inst{ 12-5 } = src1;
+  bits<8> src2;
+  let Inst{ 20-13 } = src2;
   bits<8> dst;
   let Inst{ 28-21 } = dst;
 }
@@ -891,102 +1096,6 @@ def MOD  : InstCucaracha<(outs IntegerRegisters:$dst ),
                    "MOD $src1, $src2, $dst",
                    [(set i32:$dst, (srem i32:$src1, i32:$src2))]> {
   let Inst{ 4 - 0 } = 0b01010; // opcode
-  bits<8> src1;
-  let Inst{ 12-5 } = src1;
-  bits<8> src2;
-  let Inst{ 20-13 } = src2;
-  bits<8> dst;
-  let Inst{ 28-21 } = dst;
-}
-
-
-// MOV (code: 3, binary: 00011, hex: 0x3) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
-// Copies the value of a 32 bit integer register into another 32 bit integer register
-def MOV  : InstCucaracha<(outs IntegerRegisters:$dst ),
-                   (ins IntegerRegisters:$src),
-                   "MOV $src, $dst",
-                   []> {
-  let Inst{ 4 - 0 } = 0b00011; // opcode
-  bits<8> src;
-  let Inst{ 12-5 } = src;
-  bits<8> dst;
-  let Inst{ 20-13 } = dst;
-}
-
-
-// JMP (code: 12, binary: 01100, hex: 0xc) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers>
-// Unconditional jump to the address contained in a 32 bit integer register
-def JMP  : InstCucaracha<(outs IntegerRegisters:$link ),
-                   (ins IntegerRegisters:$target),
-                   "JMP $target, $link",
-                   []> {
-  let Inst{ 4 - 0 } = 0b01100; // opcode
-  bits<8> target;
-  let Inst{ 12-5 } = target;
-  bits<8> link;
-  let Inst{ 20-13 } = link;
-  let isBranch = true;
-  let isBarrier = true;
-  let isTerminator = true;
-  let isIndirectBranch = true;
-}
-
-
-// MOVIMM16H (code: 1, binary: 00001, hex: 0x1) <Source:Immediate:Int32> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Copies the 16 most significant bits of a 32 bit immediate into a 32 bit integer register, preserving the low 16 bits
-let Constraints = "$src = $dst" in
-def MOVIMM16H  : InstCucaracha<(outs IntegerRegisters:$dst ),
-                   (ins i32imm:$imm, IntegerRegisters:$src),
-                   "MOVIMM16H $imm, $dst",
-                   []> {
-  let Inst{ 4 - 0 } = 0b00001; // opcode
-  bits<16> imm;
-  let Inst{ 20-5 } = imm;
-  bits<8> dst;
-  let Inst{ 28-21 } = dst;
-}
-
-
-// LD (code: 4, binary: 00100, hex: 0x4) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Copies a word (32 bit) from a memory location and stores it in a register
-def LD  : InstCucaracha<(outs IntegerRegisters:$dst ),
-                   (ins IntegerRegisters:$addr),
-                   "LD $addr, $dst",
-                   []> {
-  let Inst{ 4 - 0 } = 0b00100; // opcode
-  bits<8> addr;
-  let Inst{ 12-5 } = addr;
-  bits<8> dst;
-  let Inst{ 20-13 } = dst;
-  let mayLoad = true;
-}
-
-
-// CJMP (code: 13, binary: 01101, hex: 0xd) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Conditional jump to the address contained in a 32 bit integer register if the condition code (stored in a register) is satisfied by the current CPSR flags
-def CJMP  : InstCucaracha<(outs IntegerRegisters:$link ),
-                   (ins IntegerRegisters:$condcode, IntegerRegisters:$target),
-                   "CJMP $condcode, $target, $link",
-                   []> {
-  let Inst{ 4 - 0 } = 0b01101; // opcode
-  bits<8> condcode;
-  let Inst{ 12-5 } = condcode;
-  bits<8> target;
-  let Inst{ 20-13 } = target;
-  bits<8> link;
-  let Inst{ 28-21 } = link;
-  let isBranch = true;
-  let isTerminator = true;
-}
-
-
-// MUL (code: 8, binary: 01000, hex: 0x8) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Multiplies the values of two integer registers and save the result into an integer register
-def MUL  : InstCucaracha<(outs IntegerRegisters:$dst ),
-                   (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
-                   "MUL $src1, $src2, $dst",
-                   [(set i32:$dst, (mul i32:$src1, i32:$src2))]> {
-  let Inst{ 4 - 0 } = 0b01000; // opcode
   bits<8> src1;
   let Inst{ 12-5 } = src1;
   bits<8> src2;
@@ -1012,22 +1121,90 @@ def LSL  : InstCucaracha<(outs IntegerRegisters:$dst ),
 }
 
 
-// ST (code: 5, binary: 00101, hex: 0x5) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Copies a word (32 bit) from a 32 bit integer register and writes it to a location in memory
-def ST  : InstCucaracha<(outs  ),
-                   (ins IntegerRegisters:$src, IntegerRegisters:$addr),
-                   "ST $src, $addr",
-                   []> {
-  let Inst{ 4 - 0 } = 0b00101; // opcode
-  bits<8> src;
-  let Inst{ 12-5 } = src;
-  bits<8> addr;
-  let Inst{ 20-13 } = addr;
-  let mayStore = true;
+// ASL (code: 16, binary: 10000, hex: 0x10) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+// Arithmetic shift left the values of two integer registers and save the result into an integer register
+def ASL  : InstCucaracha<(outs IntegerRegisters:$dst ),
+                   (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
+                   "ASL $src1, $src2, $dst",
+                   [(set i32:$dst, (shl i32:$src1, i32:$src2))]> {
+  let Inst{ 4 - 0 } = 0b10000; // opcode
+  bits<8> src1;
+  let Inst{ 12-5 } = src1;
+  bits<8> src2;
+  let Inst{ 20-13 } = src2;
+  bits<8> dst;
+  let Inst{ 28-21 } = dst;
 }
 
 
-// ADD (code: 6, binary: 00110, hex: 0x6) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+// CMP (code: 11, binary: 01011, hex: 0xb) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers>
+// Compares the values of two 32 bit integer registers and stores the comparison result into CPSR
+def CMP  : InstCucaracha<(outs IntegerRegisters:$dst ),
+                   (ins IntegerRegisters:$lhs, IntegerRegisters:$rhs),
+                   "CMP $lhs, $rhs, $dst",
+                   [(set i32:$dst, (cucaracha_cmp i32:$lhs, i32:$rhs))]> {
+  let Inst{ 4 - 0 } = 0b01011; // opcode
+  bits<8> lhs;
+  let Inst{ 12-5 } = lhs;
+  bits<8> rhs;
+  let Inst{ 20-13 } = rhs;
+  bits<8> dst;
+  let Inst{ 28-21 } = dst;
+}
+
+
+// LD (code: 4, binary: 00100, hex: 0x4) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+// Copies a word (32 bit) from a memory location and stores it in a register
+def LD  : InstCucaracha<(outs IntegerRegisters:$dst ),
+                   (ins IntegerRegisters:$addr),
+                   "LD $addr, $dst",
+                   []> {
+  let Inst{ 4 - 0 } = 0b00100; // opcode
+  bits<8> addr;
+  let Inst{ 12-5 } = addr;
+  bits<8> dst;
+  let Inst{ 20-13 } = dst;
+  let mayLoad = true;
+}
+
+
+// JMP (code: 12, binary: 01100, hex: 0xc) <Int32:general purpose integer registers,state registers> <Int32:state registers,general purpose integer registers>
+// Unconditional jump to the address contained in a 32 bit integer register
+def JMP  : InstCucaracha<(outs IntegerRegisters:$link ),
+                   (ins IntegerRegisters:$target),
+                   "JMP $target, $link",
+                   []> {
+  let Inst{ 4 - 0 } = 0b01100; // opcode
+  bits<8> target;
+  let Inst{ 12-5 } = target;
+  bits<8> link;
+  let Inst{ 20-13 } = link;
+  let isBranch = true;
+  let isBarrier = true;
+  let isTerminator = true;
+  let isIndirectBranch = true;
+}
+
+
+// CJMP (code: 13, binary: 01101, hex: 0xd) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+// Conditional jump to the address contained in a 32 bit integer register if the condition code (stored in a register) is satisfied by the current CPSR flags
+def CJMP  : InstCucaracha<(outs IntegerRegisters:$link ),
+                   (ins IntegerRegisters:$condcode, IntegerRegisters:$target),
+                   "CJMP $condcode, $target, $link",
+                   []> {
+  let Inst{ 4 - 0 } = 0b01101; // opcode
+  bits<8> condcode;
+  let Inst{ 12-5 } = condcode;
+  bits<8> target;
+  let Inst{ 20-13 } = target;
+  bits<8> link;
+  let Inst{ 28-21 } = link;
+  let isBranch = true;
+  let isTerminator = true;
+}
+
+
+// ADD (code: 6, binary: 00110, hex: 0x6) <Int32:state registers,general purpose integer registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
 // Adds the values of two integer registers and save the result into an integer register
 def ADD  : InstCucaracha<(outs IntegerRegisters:$dst ),
                    (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
@@ -1043,19 +1220,29 @@ def ADD  : InstCucaracha<(outs IntegerRegisters:$dst ),
 }
 
 
-// SUB (code: 7, binary: 00111, hex: 0x7) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
-// Subsctracts the values of two integer registers and save the result into an integer register
-def SUB  : InstCucaracha<(outs IntegerRegisters:$dst ),
+// DIV (code: 9, binary: 01001, hex: 0x9) <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers> <Int32:general purpose integer registers,state registers>
+// Divides the values of two integer registers and save the result into an integer register
+def DIV  : InstCucaracha<(outs IntegerRegisters:$dst ),
                    (ins IntegerRegisters:$src1, IntegerRegisters:$src2),
-                   "SUB $src1, $src2, $dst",
-                   [(set i32:$dst, (sub i32:$src1, i32:$src2))]> {
-  let Inst{ 4 - 0 } = 0b00111; // opcode
+                   "DIV $src1, $src2, $dst",
+                   [(set i32:$dst, (sdiv i32:$src1, i32:$src2))]> {
+  let Inst{ 4 - 0 } = 0b01001; // opcode
   bits<8> src1;
   let Inst{ 12-5 } = src1;
   bits<8> src2;
   let Inst{ 20-13 } = src2;
   bits<8> dst;
   let Inst{ 28-21 } = dst;
+}
+
+
+// EI (code: 19, binary: 10011, hex: 0x13) 
+// Enables interrupts. After this instruction, the CPU will respond to interrupt requests.
+def EI  : InstCucaracha<(outs  ),
+                   (ins ),
+                   "EI ",
+                   []> {
+  let Inst{ 4 - 0 } = 0b10011; // opcode
 }
 
 

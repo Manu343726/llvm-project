@@ -51,9 +51,10 @@
             "name": "Linux GCC Docker",
             "inherits": "base",
             "binaryDir": "${sourceDir}/../build_docker_linux_gcc",
-            "generator": "Unix Makefiles",
+            "generator": "Ninja",
             "cacheVariables": {
-                "LLVM_HOST_TRIPLE": "x86_64-linux-gnu"
+                "LLVM_HOST_TRIPLE": "x86_64-linux-gnu",
+                "LLVM_PARALLEL_LINK_JOBS": "1"
             },
             "condition": {
                 "type": "equals",
@@ -97,6 +98,11 @@
             "name": "Linux GCC",
             "configurePreset": "Linux GCC",
             "jobs": 10
+        },
+        {
+            "name": "Linux GCC Docker",
+            "configurePreset": "Linux GCC Docker",
+            "jobs": 12
         }
     ]
 }
